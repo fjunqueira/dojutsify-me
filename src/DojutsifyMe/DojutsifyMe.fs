@@ -9,15 +9,15 @@ open Emgu.CV.CvEnum;
 open Emgu.CV.Structure;
 open DojutsifyMe.FaceDetection;
 
-let retrieve channel (cap : VideoCapture) =
+let retrieveFrame channel (capture : VideoCapture) =
     let frame = new UMat()
-    let success = cap.Retrieve(frame, channel)
+    let success = capture.Retrieve(frame, channel)
     (success, frame)
 
 let drawRectangle frame rectangle color =
     CvInvoke.Rectangle(frame, rectangle, Bgr(color).MCvScalar, 2)
 
-let drawFaceRectangle frame (face,eyes) =
+let drawFaceRectangle frame (face, eyes) =
     drawRectangle frame face Color.Red
     List.iter (fun eye -> drawRectangle frame eye Color.Blue) eyes
 
@@ -28,14 +28,14 @@ let main args =
     let imageBox = new ImageBox(Location=Point(0,0), Size=Size(800,500), Image=null)
     form.Controls.Add(imageBox)
 
-    let cap = new VideoCapture()
-    cap.Start()
+    let capture = new VideoCapture()
+    capture.Start()
     
     use imageGrabbedEvent = 
-        cap.ImageGrabbed |> 
-            Observable.map (fun _ -> cap) |> 
-            Observable.filter (fun cap -> cap.Ptr <> IntPtr.Zero) |> 
-            Observable.map (retrieve 0) |>
+        capture.ImageGrabbed |> 
+            Observable.map (fun _ -> capture) |> 
+            Observable.filter (fun capture -> capture.Ptr <> IntPtr.Zero) |> 
+            Observable.map (retrieveFrame 0) |>
             Observable.map (fun retrieved -> match retrieved with
                                                 | (true, frame) -> frame, detectFace frame
                                                 | (_, frame) -> frame , []) |>
