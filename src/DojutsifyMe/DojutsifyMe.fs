@@ -8,39 +8,56 @@ open Emgu.CV.UI;
 open Emgu.CV.CvEnum;
 open Emgu.CV.Structure;
 open DojutsifyMe.FaceDetection;
+open FSharp.Control.Reactive;
+open FSharpx.Reader
+
+let display (imageBox:ImageBox) (image:UMat) = 
+    imageBox.Image <- image 
+    image
 
 let retrieveFrame channel (capture : VideoCapture) =
     let frame = new UMat()
-    let success = capture.Retrieve(frame, channel)
-    (success, frame)
+    match capture.Retrieve(frame, channel) with
+        | true -> Some frame
+        | _ -> None 
 
-let drawRectangle frame rectangle color =
+let drawRectangle color (frame:UMat) rectangle =
     CvInvoke.Rectangle(frame, rectangle, Bgr(color).MCvScalar, 2)
-
-let drawFaceRectangle frame (face, eyes) =
-    drawRectangle frame face Color.Red
-    List.iter (fun eye -> drawRectangle frame eye Color.Blue) eyes
+    frame
 
 [<EntryPoint>]
 [<STAThread>]
 let main args = 
     let form = new Form(Width=800, Height=500, Name="Dojutsify Me")
-    let imageBox = new ImageBox(Location=Point(0,0), Size=Size(800,500), Image=null)
-    form.Controls.Add(imageBox)
+
+    let mainBox = new ImageBox(Location=Point(0,0), Size=Size(500,500), Image=null)
+    let secondBox = new ImageBox(Location=Point(500,0), Size=Size(300,250), Image=null)
+    let thirdBox = new ImageBox(Location=Point(500,250), Size=Size(300,250), Image=null)
+    
+    form.Controls.AddRange([|mainBox;secondBox;thirdBox|])
+
+    let processFrame frame = 
+        frame |>
+        grayScale |> 
+        //Use reader
+        display secondBox |> 
+        equalizeHistogram |> 
+        //Use reader
+        display thirdBox |> 
+        detectFace |> 
+        List.map (drawRectangle Color.Red frame >> display mainBox)
+        //Use reader
+        //detectEyes
 
     let capture = new VideoCapture()
     capture.Start()
     
-    use imageGrabbedEvent = 
+    use imageGrabbedObservable = 
         capture.ImageGrabbed |> 
             Observable.map (fun _ -> capture) |> 
             Observable.filter (fun capture -> capture.Ptr <> IntPtr.Zero) |> 
             Observable.map (retrieveFrame 0) |>
-            Observable.map (fun retrieved -> match retrieved with
-                                                | (true, frame) -> frame, detectFace frame
-                                                | (_, frame) -> frame , []) |>
-            Observable.subscribe (fun (frame, faces) -> List.iter (drawFaceRectangle frame) faces
-                                                        imageBox.Image <- frame)
+            Observable.subscribe (Option.map processFrame >> ignore)
 
     Application.EnableVisualStyles()
     Application.SetCompatibleTextRenderingDefault(false)

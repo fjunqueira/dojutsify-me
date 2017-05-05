@@ -1,6 +1,8 @@
 NUGET
   remote: https://www.nuget.org/api/v2
     FAKE (4.58.6)
+    FSharp.Control.Reactive (3.5)
+      System.Reactive (>= 3.0)
     FSharp.Core (4.1.12)
       System.Collections (>= 4.0.11) - framework: >= netstandard16
       System.Console (>= 4.0) - framework: >= netstandard16
@@ -26,6 +28,7 @@ NUGET
       System.Threading.ThreadPool (>= 4.0.10) - framework: >= netstandard16
       System.Threading.Timer (>= 4.0.1) - framework: >= netstandard16
       System.ValueTuple (>= 4.3) - framework: >= net10, netstandard10, netstandard11, netstandard12, netstandard13, netstandard14, netstandard15
+    FSharpx.Core (1.8.32)
     FsUnit (3.0)
       FSharp.Core (>= 3.1.2.5) - framework: >= net10, netstandard10, netstandard11, netstandard12, netstandard13, netstandard14, netstandard15
       FSharp.Core (>= 4.1) - framework: >= netstandard16
@@ -334,6 +337,22 @@ NUGET
       System.Resources.ResourceManager (>= 4.3) - framework: dnxcore50, >= netstandard13
       System.Runtime (>= 4.3) - framework: dnxcore50, netstandard10, >= netstandard13
       System.Threading (>= 4.3) - framework: dnxcore50, >= netstandard13
+    System.Reactive (3.1.1)
+      System.Reactive.PlatformServices (>= 3.1.1)
+      System.Reactive.Windows.Threading (>= 3.1.1) - framework: >= net45, winv4.5.1, wpav8.1
+      System.Reactive.WindowsRuntime (>= 3.1.1) - framework: winv4.5.1, wpav8.1
+    System.Reactive.Core (3.1.1) - framework: >= net45, >= netstandard10, winv4.5.1, wpav8.1
+      System.Reactive.Interfaces (>= 3.1.1) - framework: >= net45, >= netstandard10, netcore10
+    System.Reactive.Interfaces (3.1.1) - framework: >= net45, >= netstandard10
+    System.Reactive.Linq (3.1.1)
+      System.Reactive.Core (>= 3.1.1) - framework: >= net45, >= netstandard10
+      System.Runtime.InteropServices.WindowsRuntime (>= 4.0.1) - framework: >= netstandard10
+    System.Reactive.PlatformServices (3.1.1)
+      System.Reactive.Linq (>= 3.1.1)
+    System.Reactive.Windows.Threading (3.1.1) - framework: >= net45, winv4.5.1, wpav8.1
+      System.Reactive.Core (>= 3.1.1)
+    System.Reactive.WindowsRuntime (3.1.1) - framework: winv4.5.1, wpav8.1
+      System.Reactive.Linq (>= 3.1.1)
     System.Reflection (4.3) - framework: >= net10, >= netstandard10
       Microsoft.NETCore.Platforms (>= 1.1) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
       Microsoft.NETCore.Targets (>= 1.1) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
@@ -399,6 +418,8 @@ NUGET
       System.Runtime (>= 4.3) - framework: dnxcore50, >= netstandard11
       System.Runtime.InteropServices (>= 4.3) - framework: >= netstandard11
       System.Threading (>= 4.3) - framework: dnxcore50, >= netstandard11
+    System.Runtime.InteropServices.WindowsRuntime (4.3) - framework: >= netstandard10
+      System.Runtime (>= 4.3) - framework: dnxcore50, >= netstandard10
     System.Runtime.Loader (4.3) - framework: >= net463, >= netstandard16
       System.IO (>= 4.3) - framework: >= netstandard15
       System.Reflection (>= 4.3) - framework: >= netstandard15
