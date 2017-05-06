@@ -12,8 +12,7 @@ open FSharp.Control.Reactive;
 open FSharpx.Reader
 
 let display (imageBox:ImageBox) (image:UMat) = 
-    imageBox.Image <- image 
-    image
+    imageBox.Image <- image
 
 let retrieveFrame channel (capture : VideoCapture) =
     let frame = new UMat()
@@ -23,7 +22,6 @@ let retrieveFrame channel (capture : VideoCapture) =
 
 let drawRectangle color (frame:UMat) rectangle =
     CvInvoke.Rectangle(frame, rectangle, Bgr(color).MCvScalar, 2)
-    frame
 
 [<EntryPoint>]
 [<STAThread>]
@@ -36,18 +34,18 @@ let main args =
     
     form.Controls.AddRange([|mainBox;secondBox;thirdBox|])
 
-    let processFrame frame = 
-        frame |>
-        grayScale |> 
-        //Use reader
-        display secondBox |> 
-        equalizeHistogram |> 
-        //Use reader
-        display thirdBox |> 
-        detectFace |> 
-        List.map (drawRectangle Color.Red frame >> display mainBox)
-        //Use reader
-        //detectEyes
+    let processFrame frame =
+        let grayScaled = frame |> grayScale
+        let equalized = grayScaled |> equalizeHistogram
+        let faces = equalized |> detectFace
+        let eyes = faces |> List.map (detectEyes equalized)
+        
+        faces |> List.iter (drawRectangle Color.Red frame)
+        eyes |> List.concat |> List.iter (drawRectangle Color.Blue frame)
+        
+        let (GrayScaled gray) = grayScaled in display secondBox gray
+        let (EqualizedHistogram eq) = equalized in display thirdBox eq
+        display mainBox frame
 
     let capture = new VideoCapture()
     capture.Start()
