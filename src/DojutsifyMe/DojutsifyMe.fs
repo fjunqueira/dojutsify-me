@@ -9,18 +9,17 @@ open Emgu.CV.CvEnum;
 open Emgu.CV.Structure;
 open DojutsifyMe.FaceDetection;
 open FSharp.Control.Reactive;
-open FSharpx.Reader
+open FSharpx.Choice
+open FSharpx
 
-let display (imageBox:ImageBox) (image:UMat) = 
+let display (imageBox:ImageBox) (image:Mat) = 
     imageBox.Image <- image
 
-let retrieveFrame channel (capture : VideoCapture) =
-    let frame = new UMat()
-    match capture.Retrieve(frame, channel) with
-        | true -> Some frame
-        | _ -> None 
+let retrieveFrame channel (capture:VideoCapture) =
+    let frame = new Mat()
+    (capture.Retrieve(frame, channel),frame)
 
-let drawRectangle color (frame:UMat) rectangle =
+let drawRectangle color (frame:Mat) rectangle =
     CvInvoke.Rectangle(frame, rectangle, Bgr(color).MCvScalar, 2)
 
 [<EntryPoint>]
@@ -34,28 +33,22 @@ let main args =
     
     form.Controls.AddRange([|mainBox;secondBox;thirdBox|])
 
-    let processFrame frame =
-        let grayScaled = frame |> grayScale
-        let equalized = grayScaled |> equalizeHistogram
-        let faces = equalized |> detectFace
-        let eyes = faces |> List.map (detectEyes equalized)
-        
-        faces |> List.iter (drawRectangle Color.Red frame)
-        eyes |> List.concat |> List.iter (drawRectangle Color.Blue frame)
-        
-        let (GrayScaled gray) = grayScaled in display secondBox gray
-        let (EqualizedHistogram eq) = equalized in display thirdBox eq
-        display mainBox frame
-
     let capture = new VideoCapture()
     capture.Start()
     
-    use imageGrabbedObservable = 
-        capture.ImageGrabbed |> 
-            Observable.map (fun _ -> capture) |> 
-            Observable.filter (fun capture -> capture.Ptr <> IntPtr.Zero) |> 
-            Observable.map (retrieveFrame 0) |>
-            Observable.subscribe (Option.map processFrame >> ignore)
+    let imageGrabbed = capture.ImageGrabbed
+
+    imageGrabbed |>
+        Observable.map (fun _ -> capture) |> 
+        Observable.filter (fun capture -> capture.Ptr <> IntPtr.Zero) |> 
+        Observable.map (retrieveFrame 0) |>
+        Observable.filter fst |> 
+        Observable.map (snd >> extractFace) |>
+        //Observable.flatmap (fun face -> imageGrabbed |> Observable.map (fun _ -> face)) |>
+        Observable.subscribe (fun face -> match face with
+                                            | Choice1Of2 ([head],eye1::eyeN) -> printfn "%s" "Success"
+                                            | Choice2Of2 message -> printfn "%s" message
+                                            | _ -> ()) |> ignore
 
     Application.EnableVisualStyles()
     Application.SetCompatibleTextRenderingDefault(false)
