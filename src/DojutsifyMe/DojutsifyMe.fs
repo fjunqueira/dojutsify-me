@@ -22,6 +22,14 @@ let retrieveFrame channel (capture:VideoCapture) =
 let drawRectangle color (frame:Mat) rectangle =
     CvInvoke.Rectangle(frame, rectangle, Bgr(color).MCvScalar, 2)
 
+let initCapture (capture:VideoCapture) = 
+        capture.ImageGrabbed |> 
+                    Observable.map (fun _ -> capture) |> 
+                    Observable.filter (fun cap -> cap.Ptr <> IntPtr.Zero) |> 
+                    Observable.map (retrieveFrame 0) |>
+                    Observable.filter fst |> 
+                    Observable.map snd
+
 [<EntryPoint>]
 [<STAThread>]
 let main args = 
@@ -36,19 +44,14 @@ let main args =
     let capture = new VideoCapture()
     capture.Start()
     
-    let imageGrabbed = capture.ImageGrabbed
-
-    imageGrabbed |>
-        Observable.map (fun _ -> capture) |> 
-        Observable.filter (fun capture -> capture.Ptr <> IntPtr.Zero) |> 
-        Observable.map (retrieveFrame 0) |>
-        Observable.filter fst |> 
-        Observable.map (snd >> extractFace) |>
-        //Observable.flatmap (fun face -> imageGrabbed |> Observable.map (fun _ -> face)) |>
-        Observable.subscribe (fun face -> match face with
-                                            | Choice1Of2 ([head],eye1::eyeN) -> printfn "%s" "Success"
-                                            | Choice2Of2 message -> printfn "%s" message
-                                            | _ -> ()) |> ignore
+    use processFrame = 
+            capture |>
+                initCapture |>
+                Observable.map extractFace |>
+                Observable.filter (Choice.toOption >> Option.isSome) |>
+                Observable.map (fun data -> printfn "%s" "detected a face"; capture.Dispose(); System.Threading.Thread.Sleep(2000); data) |>
+                Observable.flatmap (fun face -> let newCapture = new VideoCapture() in  newCapture.Start(); newCapture |> initCapture |> Observable.map (tuple2 face)) |>
+                Observable.subscribe (fun (face, frame) -> mainBox.Image <- frame)
 
     Application.EnableVisualStyles()
     Application.SetCompatibleTextRenderingDefault(false)
