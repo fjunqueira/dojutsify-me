@@ -49,8 +49,8 @@ let main args =
                 initCapture |>
                 Observable.map extractFace |>
                 Observable.filter (Choice.toOption >> Option.isSome) |>
-                Observable.map (fun data -> printfn "%s" "detected a face"; capture.Dispose(); System.Threading.Thread.Sleep(2000); data) |>
-                Observable.flatmap (fun face -> let newCapture = new VideoCapture() in  newCapture.Start(); newCapture |> initCapture |> Observable.map (tuple2 face)) |>
+                Observable.take 1 |>
+                Observable.flatmap (fun data -> capture |> initCapture |> Observable.map (tuple2 data)) |> 
                 Observable.subscribe (fun (face, frame) -> mainBox.Image <- frame)
 
     Application.EnableVisualStyles()
