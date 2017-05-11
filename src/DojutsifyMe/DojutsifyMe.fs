@@ -22,7 +22,7 @@ let retrieveFrame channel (capture:VideoCapture) =
 let drawRectangle color (frame:Mat) rectangle =
     CvInvoke.Rectangle(frame, rectangle, Bgr(color).MCvScalar, 2)
 
-let initCapture (capture:VideoCapture) = 
+let imageGrabbed (capture:VideoCapture) = 
         capture.ImageGrabbed |> 
                     Observable.map (fun _ -> capture) |> 
                     Observable.filter (fun cap -> cap.Ptr <> IntPtr.Zero) |> 
@@ -46,11 +46,10 @@ let main args =
     
     use processFrame = 
             capture |>
-                initCapture |>
+                imageGrabbed |>
                 Observable.map extractFace |>
-                Observable.filter fst |>
-                Observable.take 1 |>
-                Observable.flatmap (fun data -> capture |> initCapture |> Observable.map (data |> snd |> tuple2)) |> 
+                Observable.firstIf fst |>
+                Observable.flatmap (fun data -> capture |> imageGrabbed |> Observable.map (data |> snd |> tuple2)) |> 
                 Observable.subscribe (fun (face, frame) -> mainBox.Image <- frame)
 
     Application.EnableVisualStyles()
