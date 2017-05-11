@@ -48,9 +48,9 @@ let main args =
             capture |>
                 initCapture |>
                 Observable.map extractFace |>
-                Observable.filter (Choice.toOption >> Option.isSome) |>
+                Observable.filter fst |>
                 Observable.take 1 |>
-                Observable.flatmap (fun data -> capture |> initCapture |> Observable.map (tuple2 data)) |> 
+                Observable.flatmap (fun data -> capture |> initCapture |> Observable.map (data |> snd |> tuple2)) |> 
                 Observable.subscribe (fun (face, frame) -> mainBox.Image <- frame)
 
     Application.EnableVisualStyles()

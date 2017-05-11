@@ -32,19 +32,13 @@ let detectFace (EqualizedHistogram frame) =
     faceCascade.DetectMultiScale(frame, 1.1, 10, Size(20, 20)) |> 
         Array.toList
 
-let Success = Choice1Of2
-let Failure = Choice2Of2
-
 let extractFace frame =
 
     let equalized = frame |> grayScale |> equalizeHistogram
     let faces = equalized |> detectFace
-    let eyes = faces |> List.map (detectEyes equalized) |> List.concat
+    let eyes = faces |> List.collect (detectEyes equalized)
 
     match faces, eyes with
-        | ([head],[leftEye;rightEye]) as data -> Success data
-        | ([head],[eye]) as data -> Success data
-        | ([], _) -> Failure "No head found"
-        | (_, []) -> Failure "No eyes found"
-        | (head1::head2::headN, _) -> Failure "Too many heads found"
-        | (_, eye1::eye2::eye3::eyeN) -> Failure "Too many eyes found"
+        | ([head],[leftEye;rightEye]) as data -> (true, data)
+        | ([head],[eye]) as data -> (true, data)
+        | data -> (false, data)
