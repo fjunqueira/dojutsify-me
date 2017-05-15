@@ -7,9 +7,12 @@ open Emgu.CV;
 open Emgu.CV.UI;
 open Emgu.CV.CvEnum;
 open Emgu.CV.Structure;
+open Emgu.CV.Features2D;
 open DojutsifyMe.FaceDetection;
+open DojutsifyMe.FaceTracking;
 open FSharp.Control.Reactive;
 open FSharpx.Choice
+open Emgu.CV.Util;
 open FSharpx
 
 let display (imageBox:ImageBox) (image:Mat) = 
@@ -22,13 +25,21 @@ let retrieveFrame channel (capture:VideoCapture) =
 let drawRectangle color (frame:Mat) rectangle =
     CvInvoke.Rectangle(frame, rectangle, Bgr(color).MCvScalar, 2)
 
-let imageGrabbed (capture:VideoCapture) = 
-        capture.ImageGrabbed |> 
-                    Observable.map (fun _ -> capture) |> 
-                    Observable.filter (fun cap -> cap.Ptr <> IntPtr.Zero) |> 
-                    Observable.map (retrieveFrame 0) |>
-                    Observable.filter fst |> 
-                    Observable.map snd
+let imageGrabbedObservable (capture:VideoCapture) = 
+    capture.ImageGrabbed |> 
+                Observable.map (fun _ -> capture) |> 
+                Observable.filter (fun cap -> cap.Ptr <> IntPtr.Zero) |> 
+                Observable.map (retrieveFrame 0) |>
+                Observable.filter fst |> 
+                Observable.map snd
+
+let imageFeaturesObservable frame = 
+    frame |> 
+        extractFace |> 
+        Observable.single |> 
+        Observable.filter fst |>
+        Observable.map snd |>
+        Observable.map (fun (head,_) -> let cropped = new Mat(frame, head) in head, frame, goodFeaturesToTrack cropped)
 
 [<EntryPoint>]
 [<STAThread>]
@@ -46,11 +57,23 @@ let main args =
     
     use processFrame = 
             capture |>
-                imageGrabbed |>
-                Observable.map extractFace |>
-                Observable.firstIf fst |>
-                Observable.flatmap (fun data -> capture |> imageGrabbed |> Observable.map (data |> snd |> tuple2)) |> 
-                Observable.subscribe (fun (face, frame) -> mainBox.Image <- frame)
+                imageGrabbedObservable |> 
+                Observable.flatmap imageFeaturesObservable |>
+                Observable.subscribe 
+                    (fun (head, frame, goodFeatures) -> 
+                        let output = new Mat();
+                        let data = goodFeatures.ToArray() |> Array.map (fun keypoint -> MKeyPoint(Point = PointF(keypoint.Point.X + (float32 head.Location.X), keypoint.Point.Y + (float32 head.Location.Y)),
+                                                                                                  Angle = keypoint.Angle,
+                                                                                                  Octave = keypoint.Octave,
+                                                                                                  Response = keypoint.Response,
+                                                                                                  Size = keypoint.Size,
+                                                                                                  ClassId = keypoint.ClassId))
+
+                        Features2DToolbox.DrawKeypoints (frame, new VectorOfKeyPoint(data), output,Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
+                        mainBox.Image <- output)
+                //Observable.first |>
+                //Observable.flatmap (fun data -> capture |> imageGrabbedObservable |> Observable.map (data |> snd |> tuple2)) |>
+                //Observable.subscribe (fun (face, frame) -> mainBox.Image <- frame)
 
     Application.EnableVisualStyles()
     Application.SetCompatibleTextRenderingDefault(false)

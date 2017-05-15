@@ -39,6 +39,6 @@ let extractFace frame =
     let eyes = faces |> List.collect (detectEyes equalized)
 
     match faces, eyes with
-        | ([head],[leftEye;rightEye]) as data -> (true, data)
-        | ([head],[eye]) as data -> (true, data)
-        | data -> (false, data)
+        | ([head],[leftEye;rightEye]) as data -> (true, (head,[leftEye;rightEye]))
+        | ([head],[eye]) as data -> (true, (head,[eye]))
+        | data -> (false, (Rectangle(),[]))

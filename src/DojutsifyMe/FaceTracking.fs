@@ -6,9 +6,12 @@ open Emgu.CV.Structure;
 open System.Drawing;
 open Emgu.CV.Util;
 
+let (|Point|) (point : PointF) = ( point.X, point.Y)
+
 let goodFeaturesToTrack (face:Mat) = 
-    let keyPointDetector = new GFTTDetector() //1000, 0.01, 1.0, 3, false, 0.04
+    let keyPointDetector = new GFTTDetector()
     let modelDescriptors = new Mat();
     let modelKeyPoints = new VectorOfKeyPoint();
-    keyPointDetector.DetectAndCompute(face, null, modelKeyPoints, modelDescriptors ,false)
-    ()
+    keyPointDetector.DetectRaw(face, modelKeyPoints, modelDescriptors)
+    modelKeyPoints
+    
