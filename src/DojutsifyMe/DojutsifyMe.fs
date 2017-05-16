@@ -39,7 +39,7 @@ let imageFeaturesObservable frame =
         Observable.single |> 
         Observable.filter fst |>
         Observable.map snd |>
-        Observable.map (fun (head,_) -> let cropped = new Mat(frame, head) in head, frame, goodFeaturesToTrack cropped)
+        Observable.map (fun (head,_) -> head, frame, goodFeaturesToTrack frame head)
 
 [<EntryPoint>]
 [<STAThread>]
@@ -62,14 +62,7 @@ let main args =
                 Observable.subscribe 
                     (fun (head, frame, goodFeatures) -> 
                         let output = new Mat();
-                        let data = goodFeatures.ToArray() |> Array.map (fun keypoint -> MKeyPoint(Point = PointF(keypoint.Point.X + (float32 head.Location.X), keypoint.Point.Y + (float32 head.Location.Y)),
-                                                                                                  Angle = keypoint.Angle,
-                                                                                                  Octave = keypoint.Octave,
-                                                                                                  Response = keypoint.Response,
-                                                                                                  Size = keypoint.Size,
-                                                                                                  ClassId = keypoint.ClassId))
-
-                        Features2DToolbox.DrawKeypoints (frame, new VectorOfKeyPoint(data), output,Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
+                        Features2DToolbox.DrawKeypoints (frame, goodFeatures, output, Bgr(Color.Green), Features2DToolbox.KeypointDrawType.Default)
                         mainBox.Image <- output)
                 //Observable.first |>
                 //Observable.flatmap (fun data -> capture |> imageGrabbedObservable |> Observable.map (data |> snd |> tuple2)) |>
