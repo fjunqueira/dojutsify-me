@@ -10,6 +10,7 @@ open Emgu.CV.Structure;
 open Emgu.CV.Features2D;
 open DojutsifyMe.FaceDetection;
 open DojutsifyMe.FaceTracking;
+open DojutsifyMe.ImageProcessing;
 open FSharp.Control.Reactive;
 open FSharpx.Choice
 open Emgu.CV.Util;
@@ -34,12 +35,15 @@ let imageGrabbedObservable (capture:VideoCapture) =
                 Observable.map snd
 
 let imageFeaturesObservable frame = 
-    frame |> 
+    let grayscaled = frame |> grayScale
+    let equalized = grayscaled |> equalizeHistogram
+    
+    equalized |>        
         extractFace |> 
         Observable.single |> 
         Observable.filter fst |>
         Observable.map snd |>
-        Observable.map (fun (head,_) -> head, frame, goodFeaturesToTrack frame head)
+        Observable.map (fun (head,_) -> head, frame, goodFeaturesToTrack grayscaled head)
 
 [<EntryPoint>]
 [<STAThread>]

@@ -3,20 +3,7 @@ module DojutsifyMe.FaceDetection
 open Emgu.CV;
 open Emgu.CV.Structure;
 open System.Drawing;
-
-type GrayScaled = GrayScaled of Mat
-type EqualizedHistogram = EqualizedHistogram of Mat
-
-let grayScale frame = 
-    let grayFrame = new Mat()
-    CvInvoke.CvtColor(frame, grayFrame, Emgu.CV.CvEnum.ColorConversion.Bgr2Gray)
-    GrayScaled grayFrame
-
-let equalizeHistogram (GrayScaled frame) = 
-    let equalizedFrame = new Mat()
-    frame.CopyTo(equalizedFrame)
-    CvInvoke.EqualizeHist(equalizedFrame, equalizedFrame)
-    EqualizedHistogram equalizedFrame
+open DojutsifyMe.ImageProcessing
 
 let detectEyes (EqualizedHistogram frame) (face:Rectangle) =
     use faceRegion = new Mat(frame, face)
@@ -32,9 +19,7 @@ let detectFace (EqualizedHistogram frame) =
     faceCascade.DetectMultiScale(frame, 1.1, 10, Size(20, 20)) |> 
         Array.toList
 
-let extractFace frame =
-
-    let equalized = frame |> grayScale |> equalizeHistogram
+let extractFace equalized =
     let faces = equalized |> detectFace
     let eyes = faces |> List.collect (detectEyes equalized)
 

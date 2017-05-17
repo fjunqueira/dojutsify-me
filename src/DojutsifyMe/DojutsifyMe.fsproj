@@ -50,8 +50,9 @@
     <Content Include="any/netstandard1.6/FSharp.Core.sigdata">
       <Paket>True</Paket>
     </Content>
-    <Compile Include="FaceTracking.fs" />
+    <Compile Include="ImageProcessing.fs" />
     <Compile Include="FaceDetection.fs" />
+    <Compile Include="FaceTracking.fs" />
     <None Include="App.config" />
     <Compile Include="DojutsifyMe.fs" />
   </ItemGroup>

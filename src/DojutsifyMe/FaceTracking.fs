@@ -12,8 +12,9 @@ open Emgu.CV.Structure;
 open Emgu.CV.Util;
 open Emgu.CV.XFeatures2D;
 open Emgu.Util;
+open DojutsifyMe.ImageProcessing;
 
-let goodFeaturesToTrack (frame:Mat) face = 
+let goodFeaturesToTrack (GrayScaled frame) face = 
     let keyPointDetector = new GFTTDetector()
 
     let mask = new Mat(frame.Size, Emgu.CV.CvEnum.DepthType.Cv8U, 1);
