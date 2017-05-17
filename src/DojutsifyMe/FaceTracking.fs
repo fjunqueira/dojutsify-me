@@ -5,7 +5,6 @@ open Emgu.CV.Features2D;
 open Emgu.CV.Structure;
 open System.Drawing;
 open Emgu.CV.Util;
-open System.Xml;
 open Emgu.CV;
 open Emgu.CV.CvEnum;
 open Emgu.CV.Features2D;
@@ -25,4 +24,4 @@ let goodFeaturesToTrack (frame:Mat) face =
     
     let modelKeyPoints = new VectorOfKeyPoint();
     keyPointDetector.DetectRaw(frame, modelKeyPoints, mask)
-    modelKeyPoints    
+    modelKeyPoints
