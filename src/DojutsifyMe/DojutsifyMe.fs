@@ -43,7 +43,23 @@ let imageFeaturesObservable frame =
         Observable.single |> 
         Observable.filter fst |>
         Observable.map snd |>
-        Observable.map (fun (head,_) -> head, frame, goodFeaturesToTrack grayscaled head)
+        Observable.map (fun (head, _) -> grayscaled, goodFeaturesToTrack grayscaled head)
+
+let faceTrackingObservable (GrayScaled previousFrame) (previousPoints:VectorOfKeyPoint) capture =
+
+    let nextPoints = new VectorOfKeyPoint();
+    let status = new VectorOfByte();
+    let error = new VectorOfFloat();
+
+    capture |> 
+        imageGrabbedObservable |>
+        Observable.map grayScale |>
+        Observable.map 
+            (fun (GrayScaled nextFrame) -> 
+                printfn "Previous point count %d" previousPoints.Size;
+                // Fails with the following error: System.Exception: Capture error ---> Emgu.CV.Util.CvException: OpenCV: (npoints = prevPtsMat.checkVector(2, CV_32F, true)) >= 0 
+                CvInvoke.CalcOpticalFlowPyrLK(previousFrame, nextFrame, previousPoints, nextPoints, status, error, Size(15,15), 2, MCvTermCriteria(10, 0.03)); 
+                nextFrame)
 
 [<EntryPoint>]
 [<STAThread>]
@@ -63,14 +79,9 @@ let main args =
             capture |>
                 imageGrabbedObservable |> 
                 Observable.flatmap imageFeaturesObservable |>
-                Observable.subscribe 
-                    (fun (head, frame, goodFeatures) -> 
-                        let output = new Mat();
-                        Features2DToolbox.DrawKeypoints (frame, goodFeatures, output, Bgr(Color.Green), Features2DToolbox.KeypointDrawType.Default)
-                        mainBox.Image <- output)
-                //Observable.first |>
-                //Observable.flatmap (fun data -> capture |> imageGrabbedObservable |> Observable.map (data |> snd |> tuple2)) |>
-                //Observable.subscribe (fun (face, frame) -> mainBox.Image <- frame)
+                Observable.first |>
+                Observable.flatmap (fun (frame, features) -> faceTrackingObservable frame features capture) |>
+                Observable.subscribe (fun frame -> mainBox.Image <- frame)
 
     Application.EnableVisualStyles()
     Application.SetCompatibleTextRenderingDefault(false)
