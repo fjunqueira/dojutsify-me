@@ -23,6 +23,24 @@ let goodFeaturesToTrack (GrayScaled frame) face =
     let roi = new Mat(mask, face);
     roi.SetTo(MCvScalar(255.0))
     
-    let modelKeyPoints = new VectorOfKeyPoint();
-    keyPointDetector.DetectRaw(frame, modelKeyPoints, mask)
-    modelKeyPoints
+    keyPointDetector.Detect(frame, mask)
+
+let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoints:MKeyPoint[]) =
+    
+    let mutable currFeatures = Unchecked.defaultof<PointF[]>
+    let mutable status = Unchecked.defaultof<byte[]>
+    let mutable trackError = Unchecked.defaultof<float32[]>
+
+    CvInvoke.CalcOpticalFlowPyrLK(
+        previousFrame, 
+        nextFrame, 
+        previousPoints |> Array.map (fun p -> p.Point), 
+        Size(15,15), 
+        2, 
+        MCvTermCriteria(10, 0.03), 
+        &currFeatures, 
+        &status, 
+        &trackError);
+    
+    printfn "Previous point count %d" (previousPoints |> Array.length);
+    printfn "Current point count %d" (currFeatures |> Array.length);

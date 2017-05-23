@@ -45,21 +45,10 @@ let imageFeaturesObservable frame =
         Observable.map snd |>
         Observable.map (fun (head, _) -> grayscaled, goodFeaturesToTrack grayscaled head)
 
-let faceTrackingObservable (GrayScaled previousFrame) (previousPoints:VectorOfKeyPoint) capture =
-
-    let nextPoints = new VectorOfKeyPoint();
-    let status = new VectorOfByte();
-    let error = new VectorOfFloat();
-
+let faceTrackingObservable previousFrame previousPoints capture =
     capture |> 
         imageGrabbedObservable |>
-        Observable.map grayScale |>
-        Observable.map 
-            (fun (GrayScaled nextFrame) -> 
-                printfn "Previous point count %d" previousPoints.Size;
-                // Fails with the following error: System.Exception: Capture error ---> Emgu.CV.Util.CvException: OpenCV: (npoints = prevPtsMat.checkVector(2, CV_32F, true)) >= 0 
-                CvInvoke.CalcOpticalFlowPyrLK(previousFrame, nextFrame, previousPoints, nextPoints, status, error, Size(15,15), 2, MCvTermCriteria(10, 0.03)); 
-                nextFrame)
+        Observable.map (fun frame -> lucasKanade (grayScale frame) previousFrame previousPoints; frame)
 
 [<EntryPoint>]
 [<STAThread>]
