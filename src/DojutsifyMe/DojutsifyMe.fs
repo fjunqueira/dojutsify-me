@@ -16,6 +16,10 @@ open FSharpx.Choice
 open Emgu.CV.Util;
 open FSharpx
 
+let mainBox = new ImageBox(Location=Point(0,0), Size=Size(500,500), Image=null)
+let secondBox = new ImageBox(Location=Point(500,0), Size=Size(300,250), Image=null)
+let thirdBox = new ImageBox(Location=Point(500,250), Size=Size(300,250), Image=null)
+
 let display (imageBox:ImageBox) (image:Mat) = 
     imageBox.Image <- image
 
@@ -43,21 +47,25 @@ let imageFeaturesObservable frame =
         Observable.single |> 
         Observable.filter fst |>
         Observable.map snd |>
-        Observable.map (fun (head, _) -> grayscaled, goodFeaturesToTrack grayscaled head)
+        Observable.map (fun (head, _) -> frame, goodFeaturesToTrack grayscaled head) |>
+        Observable.map (fun ((frame, points) as data) -> 
+            let output = new Mat();
+            let keypoints = new VectorOfKeyPoint(points)
+            Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
+            secondBox.Image <- output
+            data)
 
-let faceTrackingObservable previousFrame previousPoints capture =
+let faceTrackingObservable initialFrame initialPoints capture =
     capture |> 
         imageGrabbedObservable |>
-        Observable.map (fun frame -> lucasKanade (grayScale frame) previousFrame previousPoints; frame)
-
+        Observable.scanInit 
+            (initialFrame, initialPoints) 
+            (fun previous next -> let currentPoints, status, _ = lucasKanade (grayScale next) (previous |> (fst >> grayScale)) (previous |> snd) in next, currentPoints)
+        
 [<EntryPoint>]
 [<STAThread>]
 let main args = 
     let form = new Form(Width=800, Height=500, Name="Dojutsify Me")
-
-    let mainBox = new ImageBox(Location=Point(0,0), Size=Size(500,500), Image=null)
-    let secondBox = new ImageBox(Location=Point(500,0), Size=Size(300,250), Image=null)
-    let thirdBox = new ImageBox(Location=Point(500,250), Size=Size(300,250), Image=null)
     
     form.Controls.AddRange([|mainBox;secondBox;thirdBox|])
 
@@ -69,8 +77,12 @@ let main args =
                 imageGrabbedObservable |> 
                 Observable.flatmap imageFeaturesObservable |>
                 Observable.first |>
-                Observable.flatmap (fun (frame, features) -> faceTrackingObservable frame features capture) |>
-                Observable.subscribe (fun frame -> mainBox.Image <- frame)
+                Observable.flatmap (fun (frame, features) -> faceTrackingObservable frame (features |> Array.map (fun p -> p.Point)) capture) |>
+                Observable.subscribe (fun (frame, points) -> 
+                    let output = new Mat();
+                    let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
+                    Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
+                    mainBox.Image <- output)
 
     Application.EnableVisualStyles()
     Application.SetCompatibleTextRenderingDefault(false)

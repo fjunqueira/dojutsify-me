@@ -1,5 +1,6 @@
 module DojutsifyMe.FaceTracking
 
+open System;
 open Emgu.CV;
 open Emgu.CV.Features2D;
 open Emgu.CV.Structure;
@@ -15,7 +16,7 @@ open Emgu.Util;
 open DojutsifyMe.ImageProcessing;
 
 let goodFeaturesToTrack (GrayScaled frame) face = 
-    let keyPointDetector = new GFTTDetector()
+    let keyPointDetector = new GFTTDetector(100, 0.01, 1.0, 3, false, 0.04);
 
     let mask = new Mat(frame.Size, Emgu.CV.CvEnum.DepthType.Cv8U, 1);
     mask.SetTo(MCvScalar(0.0))
@@ -25,22 +26,21 @@ let goodFeaturesToTrack (GrayScaled frame) face =
     
     keyPointDetector.Detect(frame, mask)
 
-let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoints:MKeyPoint[]) =
+let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoints:PointF[]) =
     
-    let mutable currFeatures = Unchecked.defaultof<PointF[]>
+    let mutable currentPoints = Unchecked.defaultof<PointF[]>
     let mutable status = Unchecked.defaultof<byte[]>
     let mutable trackError = Unchecked.defaultof<float32[]>
 
     CvInvoke.CalcOpticalFlowPyrLK(
         previousFrame, 
         nextFrame, 
-        previousPoints |> Array.map (fun p -> p.Point), 
+        previousPoints, 
         Size(15,15), 
         2, 
         MCvTermCriteria(10, 0.03), 
-        &currFeatures, 
+        &currentPoints, 
         &status, 
-        &trackError);
+        &trackError)
     
-    printfn "Previous point count %d" (previousPoints |> Array.length);
-    printfn "Current point count %d" (currFeatures |> Array.length);
+    (currentPoints, status, trackError)
