@@ -24,7 +24,7 @@ let goodFeaturesToTrack (GrayScaled frame) face =
     let roi = new Mat(mask, face);
     roi.SetTo(MCvScalar(255.0))
     
-    keyPointDetector.Detect(frame, mask)
+    keyPointDetector.Detect(frame, mask) |> Array.map (fun p -> p.Point)
 
 let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoints:PointF[]) =
     

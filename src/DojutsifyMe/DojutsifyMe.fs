@@ -50,8 +50,9 @@ let imageFeaturesObservable frame =
         Observable.map (fun (head, _) -> frame, goodFeaturesToTrack grayscaled head) |>
         Observable.map (fun ((frame, points) as data) -> 
             let output = new Mat();
-            let keypoints = new VectorOfKeyPoint(points)
+            let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
             Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
+            CvInvoke.Resize(output, output, Size(300, 150), 0.0, 0.0, Inter.Linear)
             secondBox.Image <- output
             data)
 
@@ -77,11 +78,12 @@ let main args =
                 imageGrabbedObservable |> 
                 Observable.flatmap imageFeaturesObservable |>
                 Observable.first |>
-                Observable.flatmap (fun (frame, features) -> faceTrackingObservable frame (features |> Array.map (fun p -> p.Point)) capture) |>
+                Observable.flatmap (fun (frame, features) -> faceTrackingObservable frame features capture) |>
                 Observable.subscribe (fun (frame, points) -> 
                     let output = new Mat();
                     let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
                     Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
+                    CvInvoke.Resize(output, output, Size(500, 300), 0.0, 0.0, Inter.Linear)
                     mainBox.Image <- output)
 
     Application.EnableVisualStyles()
