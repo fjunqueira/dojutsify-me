@@ -38,7 +38,7 @@ let imageGrabbedObservable (capture:VideoCapture) =
                 Observable.filter fst |> 
                 Observable.map snd
 
-let imageFeaturesObservable frame = 
+let faceDetectedObservable (frame:Mat) =
     let grayscaled = frame |> grayScale
     let equalized = grayscaled |> equalizeHistogram
     
@@ -46,8 +46,13 @@ let imageFeaturesObservable frame =
         extractFace |> 
         Observable.single |> 
         Observable.filter fst |>
-        Observable.map snd |>
-        Observable.map (fun (head, _) -> frame, goodFeaturesToTrack grayscaled head) |>
+        Observable.map (fun data -> (data |> snd), frame, grayscaled)
+
+let imageFeaturesObservable (face, frame, grayscaled) = 
+        
+       face |>
+        Observable.single |>
+        Observable.map (fun (_, eyes) -> frame, eyes |> (List.toArray >> Array.collect (goodFeaturesToTrack grayscaled))) |>
         Observable.map (fun ((frame, points) as data) -> 
             let output = new Mat();
             let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
@@ -56,13 +61,26 @@ let imageFeaturesObservable frame =
             secondBox.Image <- output
             data)
 
-let faceTrackingObservable initialFrame initialPoints capture =
-    capture |> 
-        imageGrabbedObservable |>
+let featuresDetectedObservable grabber = 
+    grabber |> 
+        Observable.flatmap faceDetectedObservable |> 
+        Observable.first |> 
+        Observable.flatmap imageFeaturesObservable
+
+let faceTrackingObservable initialFrame initialPoints grabber = 
+
+    let interval = Observable.interval (TimeSpan.FromSeconds 5.0) |> Observable.flatmap (fun _ -> featuresDetectedObservable grabber) 
+
+    grabber |>
+        Observable.map (fun frame -> frame, Array.empty) |>
+        Observable.merge interval |>
         Observable.scanInit 
             (initialFrame, initialPoints) 
-            (fun previous next -> let currentPoints, status, _ = lucasKanade (grayScale next) (previous |> (fst >> grayScale)) (previous |> snd) in next, currentPoints)
-        
+            (fun (previousFrame, previousFeatures) ((nextFrame, newFeatures) as next) -> 
+                match newFeatures.Length with
+                    | 0 -> let currentPoints, status, _ = lucasKanade (grayScale nextFrame) (grayScale previousFrame) previousFeatures in nextFrame, currentPoints
+                    | _ -> next)
+
 [<EntryPoint>]
 [<STAThread>]
 let main args = 
@@ -73,18 +91,26 @@ let main args =
     let capture = new VideoCapture()
     capture.Start()
     
+    let imageGrabbed = capture |> imageGrabbedObservable
+           
     use processFrame = 
-            capture |>
-                imageGrabbedObservable |> 
-                Observable.flatmap imageFeaturesObservable |>
-                Observable.first |>
-                Observable.flatmap (fun (frame, features) -> faceTrackingObservable frame features capture) |>
-                Observable.subscribe (fun (frame, points) -> 
-                    let output = new Mat();
-                    let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
-                    Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
-                    CvInvoke.Resize(output, output, Size(500, 300), 0.0, 0.0, Inter.Linear)
-                    mainBox.Image <- output)
+            featuresDetectedObservable imageGrabbed |> 
+            Observable.flatmap (fun (frame, features) -> faceTrackingObservable frame features imageGrabbed) |>
+            Observable.subscribe (fun (frame, points) -> 
+              
+                // let totalMissingFeatures = (status |> Array.filter ((=)(Convert.ToByte 0)) |> Array.length)
+                // let totalError = (trackError |> Array.sum)
+
+                // if totalMissingFeatures > 0 then printfn "%d features were not found" totalMissingFeatures else () |> ignore
+                // if totalError > 26.0f then printfn "%f total error" totalError else () |> ignore
+    
+                // depending on the error level draw error frame and wait for refresh
+
+                let output = new Mat();
+                let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
+                Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
+                CvInvoke.Resize(output, output, Size(500, 300), 0.0, 0.0, Inter.Linear)
+                mainBox.Image <- output)
 
     Application.EnableVisualStyles()
     Application.SetCompatibleTextRenderingDefault(false)

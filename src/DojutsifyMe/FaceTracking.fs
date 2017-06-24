@@ -16,7 +16,7 @@ open Emgu.Util;
 open DojutsifyMe.ImageProcessing;
 
 let goodFeaturesToTrack (GrayScaled frame) face = 
-    let keyPointDetector = new GFTTDetector(100, 0.01, 1.0, 3, false, 0.04);
+    let keyPointDetector = new GFTTDetector(5, 0.01, 1.0, 3, false, 0.04);
 
     let mask = new Mat(frame.Size, Emgu.CV.CvEnum.DepthType.Cv8U, 1);
     mask.SetTo(MCvScalar(0.0))
@@ -42,5 +42,5 @@ let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoint
         &currentPoints, 
         &status, 
         &trackError)
-    
+
     (currentPoints, status, trackError)
