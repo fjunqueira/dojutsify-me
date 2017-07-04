@@ -11,7 +11,9 @@ open Emgu.CV.Features2D;
 open DojutsifyMe.FaceDetection;
 open DojutsifyMe.FaceTracking;
 open DojutsifyMe.ImageProcessing;
+open FSharp.Control;
 open FSharp.Control.Reactive;
+open FSharp.Control.Reactive.Observable;
 open FSharpx.Choice
 open Emgu.CV.Util;
 open FSharpx
@@ -48,10 +50,14 @@ let faceDetectedObservable (frame:Mat) =
         Observable.filter fst |>
         Observable.map (fun data -> (data |> snd), frame, grayscaled)
 
-let tryFaceDetectedObservable (frame:Mat) =
+let maybeFaceDetectedObservable (frame:Mat) =
     let grayscaled = frame |> grayScale
     let equalized = grayscaled |> equalizeHistogram
-    equalized |> extractFace |> Observable.single |> Observable.map (fun data -> data, frame, grayscaled)
+
+    equalized |> 
+        extractFace |> 
+        Observable.single |> 
+        Observable.map (fun data -> (if fst data then Some (snd data) else None), frame, grayscaled)
 
 let imageFeaturesObservable (face, frame, grayscaled) = 
         
@@ -66,34 +72,27 @@ let imageFeaturesObservable (face, frame, grayscaled) =
             secondBox.Image <- output
             data)
 
-let featuresDetectedObservable grabber = 
-    grabber |> 
-        Observable.flatmap faceDetectedObservable |> 
-        Observable.first |> 
-        Observable.flatmap imageFeaturesObservable
+let faceTrackingObservable initialFrame initialPoints grabber redetectFace = 
 
-
-
-let faceTrackingObservable initialFrame initialPoints grabber = 
-    // Prevent multiple calls to featuresDetectedObservable from getting accumulated when we can't detect a face
-    // every 5 secs a new observable will be created, the previous one must be finished by then
-
-//will have to recreate it everytime
-    let interval = Observable.interval (TimeSpan.FromSeconds 5.0) |> Observable.flatmap (fun _ -> grabber |> 
-                                                                                                        Observable.flatmap tryFaceDetectedObservable |> 
-                                                                                                        Observable.first |> 
-                                                                                                        Observable.flatmap (fun ((detected, data), frame, gray) -> match detected with 
-                                                                                                                                                                   | true -> imageFeaturesObservable (data, frame, gray)
-                                                                                                                                                                   | false -> Observable.single (frame, Array.empty))) 
+    let interval = redetectFace |> 
+                   //Observable.throttle (TimeSpan.FromSeconds 3.0) |>
+                   Observable.flatmap (fun _ -> grabber |> 
+                                                   Observable.first |>
+                                                   Observable.flatmap maybeFaceDetectedObservable |>  
+                                                   Observable.flatmap (fun (data, frame, gray) -> match data with 
+                                                                                                  | Some face -> imageFeaturesObservable (face, frame, gray) |> 
+                                                                                                                    Observable.map (fun (a,b) -> a, b, Array.empty, Array.empty)
+                                                                                                  // place the "put your face in front of the camera" message here
+                                                                                                  | None -> Observable.single (frame, Array.empty, Array.empty, Array.empty)))
 
     grabber |>
-        Observable.map (fun frame -> frame, Array.empty) |>
+        Observable.map (fun frame -> frame, Array.empty, Array.empty, Array.empty) |>
         Observable.merge interval |>
         Observable.scanInit 
-            (initialFrame, initialPoints) 
-            (fun (previousFrame, previousFeatures) ((nextFrame, newFeatures) as next) -> 
+            (initialFrame, initialPoints, Array.empty, Array.empty) 
+            (fun (previousFrame, previousFeatures, _, _) ((nextFrame, newFeatures, _, _) as next) -> 
                 match newFeatures.Length with
-                    | 0 -> let currentPoints, status, _ = lucasKanade (grayScale nextFrame) (grayScale previousFrame) previousFeatures in nextFrame, currentPoints
+                    | 0 -> let currentPoints, status, trackError = lucasKanade (grayScale nextFrame) (grayScale previousFrame) previousFeatures in nextFrame, currentPoints, status, trackError
                     | _ -> next)
 
 [<EntryPoint>]
@@ -107,20 +106,23 @@ let main args =
     capture.Start()
     
     let imageGrabbed = capture |> imageGrabbedObservable
-           
-    use processFrame = 
-            featuresDetectedObservable imageGrabbed |> 
-            Observable.flatmap (fun (frame, features) -> faceTrackingObservable frame features imageGrabbed) |>
-            Observable.subscribe (fun (frame, points) -> 
-              
-                // let totalMissingFeatures = (status |> Array.filter ((=)(Convert.ToByte 0)) |> Array.length)
-                // let totalError = (trackError |> Array.sum)
 
-                // if totalMissingFeatures > 0 then printfn "%d features were not found" totalMissingFeatures else () |> ignore
-                // if totalError > 26.0f then printfn "%f total error" totalError else () |> ignore
+    let redetectFace = new Subject<unit>()
     
-                // depending on the error level draw error frame and wait for refresh
+    use processFrame = 
+          imageGrabbed |>
+            Observable.flatmap faceDetectedObservable |> 
+            // place the "put your face in front of the camera" message here in another subscriber
+            Observable.first |>
+            Observable.flatmap imageFeaturesObservable |> 
+            Observable.flatmap (fun (frame, features) -> faceTrackingObservable frame features imageGrabbed redetectFace) |>
+            Observable.subscribe (fun (frame, points, status, trackError) -> 
 
+                let totalMissingFeatures = status |> Array.filter ((=)(Convert.ToByte 0)) |> Array.length
+                let totalError = trackError |> Array.sum
+
+                if totalError > 75.0f || totalMissingFeatures > 0 then redetectFace.OnNext(()) else () |> ignore
+    
                 let output = new Mat();
                 let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
                 Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
