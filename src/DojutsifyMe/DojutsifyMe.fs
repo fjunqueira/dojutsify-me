@@ -48,6 +48,11 @@ let faceDetectedObservable (frame:Mat) =
         Observable.filter fst |>
         Observable.map (fun data -> (data |> snd), frame, grayscaled)
 
+let tryFaceDetectedObservable (frame:Mat) =
+    let grayscaled = frame |> grayScale
+    let equalized = grayscaled |> equalizeHistogram
+    equalized |> extractFace |> Observable.single |> Observable.map (fun data -> data, frame, grayscaled)
+
 let imageFeaturesObservable (face, frame, grayscaled) = 
         
        face |>
@@ -67,9 +72,19 @@ let featuresDetectedObservable grabber =
         Observable.first |> 
         Observable.flatmap imageFeaturesObservable
 
-let faceTrackingObservable initialFrame initialPoints grabber = 
 
-    let interval = Observable.interval (TimeSpan.FromSeconds 5.0) |> Observable.flatmap (fun _ -> featuresDetectedObservable grabber) 
+
+let faceTrackingObservable initialFrame initialPoints grabber = 
+    // Prevent multiple calls to featuresDetectedObservable from getting accumulated when we can't detect a face
+    // every 5 secs a new observable will be created, the previous one must be finished by then
+
+//will have to recreate it everytime
+    let interval = Observable.interval (TimeSpan.FromSeconds 5.0) |> Observable.flatmap (fun _ -> grabber |> 
+                                                                                                        Observable.flatmap tryFaceDetectedObservable |> 
+                                                                                                        Observable.first |> 
+                                                                                                        Observable.flatmap (fun ((detected, data), frame, gray) -> match detected with 
+                                                                                                                                                                   | true -> imageFeaturesObservable (data, frame, gray)
+                                                                                                                                                                   | false -> Observable.single (frame, Array.empty))) 
 
     grabber |>
         Observable.map (fun frame -> frame, Array.empty) |>
