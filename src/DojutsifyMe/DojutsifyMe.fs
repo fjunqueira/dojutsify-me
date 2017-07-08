@@ -75,7 +75,7 @@ let imageFeaturesObservable (face, frame, grayscaled) =
 let faceTrackingObservable initialFrame initialPoints grabber redetectFace = 
 
     let interval = redetectFace |> 
-                   //Observable.throttle (TimeSpan.FromSeconds 3.0) |>
+                   Observable.throttle (TimeSpan.FromMilliseconds 38.0) |>
                    Observable.flatmap (fun _ -> grabber |> 
                                                    Observable.first |>
                                                    Observable.flatmap maybeFaceDetectedObservable |>  
