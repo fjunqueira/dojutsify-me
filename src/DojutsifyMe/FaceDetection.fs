@@ -4,6 +4,7 @@ open Emgu.CV;
 open Emgu.CV.Structure;
 open System.Drawing;
 open DojutsifyMe.ImageProcessing
+open FSharpx.Choice
 
 let detectEyes (EqualizedHistogram frame) (face:Rectangle) =
     use faceRegion = new Mat(frame, face)
@@ -19,11 +20,11 @@ let detectFace (EqualizedHistogram frame) =
     faceCascade.DetectMultiScale(frame, 1.1, 10, Size(20, 20)) |> 
         Array.toList
 
-let extractFace equalized =
+let tryExtractFace equalized =
     let faces = equalized |> detectFace
     let eyes = faces |> List.collect (detectEyes equalized)
 
     match faces, eyes with
-        | ([head],[leftEye;rightEye]) -> (true, (head,[leftEye;rightEye]))
-        | ([head],[eye]) -> (true, (head,[eye]))
-        | data -> (false, (Rectangle(),[]))
+        | ([head],[leftEye;rightEye]) -> Some (head,[leftEye;rightEye])
+        | ([head],[eye]) -> Some (head,[eye])
+        | data -> None

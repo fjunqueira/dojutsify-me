@@ -32,6 +32,29 @@ let retrieveFrame channel (capture:VideoCapture) =
 let drawRectangle color (frame:Mat) rectangle =
     CvInvoke.Rectangle(frame, rectangle, Bgr(color).MCvScalar, 2)
 
+let tryDetectFace (frame:Mat) =
+    let grayscaled = frame |> grayScale
+
+    grayscaled |> 
+        equalizeHistogram |> 
+        tryExtractFace |> 
+        (fun maybeFace -> maybeFace, frame, grayscaled)
+
+let getFeatures (face, frame, grayscaled) = 
+        
+    face |> 
+        snd |> 
+        List.toArray |> 
+        Array.collect (goodFeaturesToTrack grayscaled) |> 
+        (fun eyes -> frame, eyes) |>
+        (fun ((frame, points) as data) -> 
+            let output = new Mat();
+            let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
+            Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
+            CvInvoke.Resize(output, output, Size(300, 150), 0.0, 0.0, Inter.Linear)
+            secondBox.Image <- output
+            data)
+
 let imageGrabbedObservable (capture:VideoCapture) = 
     capture.ImageGrabbed |> 
                 Observable.map (fun _ -> capture) |> 
@@ -40,50 +63,20 @@ let imageGrabbedObservable (capture:VideoCapture) =
                 Observable.filter fst |> 
                 Observable.map snd
 
-let faceDetectedObservable (frame:Mat) =
-    let grayscaled = frame |> grayScale
-    let equalized = grayscaled |> equalizeHistogram
-    
-    equalized |>        
-        extractFace |> 
-        Observable.single |> 
-        Observable.filter fst |>
-        Observable.map (fun data -> (data |> snd), frame, grayscaled)
-
-let maybeFaceDetectedObservable (frame:Mat) =
-    let grayscaled = frame |> grayScale
-    let equalized = grayscaled |> equalizeHistogram
-
-    equalized |> 
-        extractFace |> 
-        Observable.single |> 
-        Observable.map (fun data -> (if fst data then Some (snd data) else None), frame, grayscaled)
-
-let imageFeaturesObservable (face, frame, grayscaled) = 
-        
-       face |>
-        Observable.single |>
-        Observable.map (fun (_, eyes) -> frame, eyes |> (List.toArray >> Array.collect (goodFeaturesToTrack grayscaled))) |>
-        Observable.map (fun ((frame, points) as data) -> 
-            let output = new Mat();
-            let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
-            Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
-            CvInvoke.Resize(output, output, Size(300, 150), 0.0, 0.0, Inter.Linear)
-            secondBox.Image <- output
-            data)
-
 let faceTrackingObservable initialFrame initialPoints grabber redetectFace = 
 
     let interval = redetectFace |> 
                    Observable.throttle (TimeSpan.FromMilliseconds 38.0) |>
                    Observable.flatmap (fun _ -> grabber |> 
                                                    Observable.first |>
-                                                   Observable.flatmap maybeFaceDetectedObservable |>  
-                                                   Observable.flatmap (fun (data, frame, gray) -> match data with 
-                                                                                                  | Some face -> imageFeaturesObservable (face, frame, gray) |> 
-                                                                                                                    Observable.map (fun (a,b) -> a, b, Array.empty, Array.empty)
-                                                                                                  // place the "put your face in front of the camera" message here
-                                                                                                  | None -> Observable.single (frame, Array.empty, Array.empty, Array.empty)))
+                                                   Observable.map tryDetectFace |>  
+                                                   Observable.flatmap (fun (data, frame, gray) -> 
+                                                                        match data with
+                                                                         // place the "put your face in front of the camera" message here
+                                                                         | None -> Observable.single (frame, Array.empty, Array.empty, Array.empty)
+                                                                         | Some face -> getFeatures (face, frame, gray) |> 
+                                                                                            (fun (frame, eyes) -> frame, eyes, Array.empty, Array.empty) |>
+                                                                                            Observable.single))
 
     grabber |>
         Observable.map (fun frame -> frame, Array.empty, Array.empty, Array.empty) |>
@@ -109,12 +102,25 @@ let main args =
 
     let redetectFace = new Subject<unit>()
     
+    let maybeFaceDetectedObservable = 
+        imageGrabbed |> 
+        Observable.throttle (TimeSpan.FromMilliseconds 38.0) |> 
+        Observable.map tryDetectFace            
+
+    // place the "put your face in front of the camera" message here in another subscriber
+    use faceNotDetected = 
+        maybeFaceDetectedObservable |>
+            Observable.takeUntilOther (maybeFaceDetectedObservable |> Observable.filter (fun (data, _, _) -> data |> Option.isSome)) |>
+            Observable.filter (fun (data, _, _) -> data |> Option.isNone) |>
+            Observable.map (fun (_, frame, _) -> frame) |>
+            Observable.subscribe (fun frame -> mainBox.Image <- frame)
+
     use processFrame = 
-          imageGrabbed |>
-            Observable.flatmap faceDetectedObservable |> 
-            // place the "put your face in front of the camera" message here in another subscriber
+          maybeFaceDetectedObservable |>
+            Observable.filter (fun (data, _, _) -> data |> Option.isSome) |>
+            Observable.map (fun (data, frame, grayscaled) -> (data |> Option.get), frame, grayscaled) |>
+            Observable.map getFeatures |> 
             Observable.first |>
-            Observable.flatmap imageFeaturesObservable |> 
             Observable.flatmap (fun (frame, features) -> faceTrackingObservable frame features imageGrabbed redetectFace) |>
             Observable.subscribe (fun (frame, points, status, trackError) -> 
 
