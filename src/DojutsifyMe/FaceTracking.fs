@@ -32,9 +32,9 @@ let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoint
     let mutable status = Unchecked.defaultof<byte[]>
     let mutable trackError = Unchecked.defaultof<float32[]>
 
-    // this is an ugly workaround to prevent an exception from ocurring in the CalcOpticalFlowPyrLK when the previous points are empty
-    // and outputing a result that makes the main process try to find a feature in the following frames
-    // i'll think of a better way to do this later
+    // This is an ugly workaround to prevent an exception from ocurring in the CalcOpticalFlowPyrLK function when the previousPoints are empty
+    // It outputs a result that makes the main process try to find a feature in the next frames
+    // I'll think of a better way to do this later
     if previousPoints.Length = 0 then (Array.zeroCreate 0, Array.create 1 (Convert.ToByte 0), Array.create 1 100.0f) else
 
     CvInvoke.CalcOpticalFlowPyrLK(

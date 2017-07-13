@@ -47,10 +47,10 @@ let getFeatures (face, frame, grayscaled) =
         snd |> 
         List.toArray |> 
         Array.collect (goodFeaturesToTrack grayscaled) |> 
-        (fun eyes -> frame, eyes) |>
-        (fun ((frame, points) as data) -> 
+        (fun features -> frame, features) |>
+        (fun ((frame, features) as data) -> 
             let output = new Mat();
-            let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
+            let keypoints = new VectorOfKeyPoint(features |> Array.map (fun p -> MKeyPoint(Point=p)))
             Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
             CvInvoke.Resize(output, output, Size(300, 150), 0.0, 0.0, Inter.Linear)
             secondBox.Image <- output
@@ -64,14 +64,14 @@ let imageGrabbedObservable (capture:VideoCapture) =
                 Observable.filter fst |> 
                 Observable.map snd
 
-type DetectionStatus = Detected | CouldntDetect | FillFrame
+type DetectionStatus = Detected | NotDetected | Tracking
 
 [<EntryPoint>]
 [<STAThread>]
 let main args = 
     let form = new Form(Width=800, Height=500, Name="Dojutsify Me")
     
-    form.Controls.AddRange([|mainBox;secondBox;thirdBox; message|])
+    form.Controls.AddRange([|mainBox;secondBox;thirdBox;message|])
 
     let capture = new VideoCapture()
     capture.Start()
@@ -86,23 +86,22 @@ let main args =
             Observable.flatmap (fun _ -> imageGrabbed |> 
                                             Observable.first |>
                                             Observable.map tryDetectFace |>  
-                                            Observable.flatmap (fun (data, frame, gray) -> 
+                                            Observable.map (fun (data, frame, gray) -> 
                                                                  match data with
-                                                                  | None -> Observable.single (CouldntDetect,frame, Array.empty, Array.empty, Array.empty)
+                                                                  | None -> NotDetected, frame, Array.empty, Array.empty, Array.empty
                                                                   | Some face -> getFeatures (face, frame, gray) |> 
-                                                                                     (fun (frame, eyes) -> Detected,frame, eyes, Array.empty, Array.empty) |>
-                                                                                     Observable.single))
+                                                                                     (fun (frame, features) -> Detected, frame, features, Array.empty, Array.empty)))
  
     use webcamImageProcessor =                                                                       
         imageGrabbed |>
-            Observable.map (fun frame -> FillFrame, frame, Array.empty, Array.empty, Array.empty) |>
+            Observable.map (fun frame -> Tracking, frame, Array.empty, Array.empty, Array.empty) |>
             Observable.merge faceDetectionObservable |>
             Observable.scan
-                (fun (previousStatus, previousFrame, previousFeatures, _, _) ((detectionStatus, nextFrame, newFeatures, _, _) as next) -> 
-                    match newFeatures.Length with
-                        | 0 -> let currentPoints, status, trackError = lucasKanade (grayScale nextFrame) (grayScale previousFrame) previousFeatures in detectionStatus, nextFrame, currentPoints, status, trackError
+                (fun (previousStatus, previousFrame, previousFeatures, _, _) ((currentStatus, currentFrame, currentFeatures, _, _) as next) -> 
+                    match currentFeatures |> Array.length with
+                        | 0 -> let currentPoints, status, trackError = lucasKanade (grayScale currentFrame) (grayScale previousFrame) previousFeatures in currentStatus, currentFrame, currentPoints, status, trackError
                         | _ -> next) |>
-            Observable.subscribe (fun (_,frame, points, status, trackError) -> 
+            Observable.subscribe (fun (_, frame, points, status, trackError) -> 
 
                 let totalMissingFeatures = status |> Array.filter ((=)(Convert.ToByte 0)) |> Array.length
                 let totalError = trackError |> Array.sum
@@ -118,7 +117,7 @@ let main args =
     use detectionStatusObservable = 
         faceDetectionObservable |>
             Observable.map (fun (status,_,_,_,_) -> status) |>
-            Observable.subscribe (function CouldntDetect -> message.Text <- "Cannot detect face" | _ -> message.Text <- String.Empty)
+            Observable.subscribe (function NotDetected -> message.Text <- "Cannot detect face" | _ -> message.Text <- String.Empty)
 
     Application.EnableVisualStyles()
     Application.SetCompatibleTextRenderingDefault(false)
