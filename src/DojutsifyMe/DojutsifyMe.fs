@@ -64,7 +64,14 @@ let imageGrabbedObservable (capture:VideoCapture) =
                 Observable.filter fst |> 
                 Observable.map snd
 
-type DetectionStatus = Detected | NotDetected | Tracking
+type FaceDetectionStatus = Detected | NotDetected | NoDetectionAttempted
+
+let trackFeatures (previousStatus, previousFrame, previousFeatures, _, _) (currentStatus, currentFrame, currentFeatures, _, _) =
+    match currentStatus with
+        | NotDetected | NoDetectionAttempted -> let features, status, trackError = lucasKanade (grayScale currentFrame) (grayScale previousFrame) previousFeatures 
+                                                in currentStatus, currentFrame, features, status, trackError
+
+        | _ -> currentStatus, currentFrame, currentFeatures, Array.empty, Array.empty
 
 [<EntryPoint>]
 [<STAThread>]
@@ -86,21 +93,17 @@ let main args =
             Observable.flatmap (fun _ -> imageGrabbed |> 
                                             Observable.first |>
                                             Observable.map tryDetectFace |>  
-                                            Observable.map (fun (data, frame, gray) -> 
-                                                                 match data with
+                                            Observable.map (fun (maybeFace, frame, gray) -> 
+                                                                 match maybeFace with
                                                                   | None -> NotDetected, frame, Array.empty, Array.empty, Array.empty
                                                                   | Some face -> getFeatures (face, frame, gray) |> 
                                                                                      (fun (frame, features) -> Detected, frame, features, Array.empty, Array.empty)))
  
     use webcamImageProcessor =                                                                       
         imageGrabbed |>
-            Observable.map (fun frame -> Tracking, frame, Array.empty, Array.empty, Array.empty) |>
+            Observable.map (fun frame -> NoDetectionAttempted, frame, Array.empty, Array.empty, Array.empty) |>
             Observable.merge faceDetectionObservable |>
-            Observable.scan
-                (fun (previousStatus, previousFrame, previousFeatures, _, _) ((currentStatus, currentFrame, currentFeatures, _, _) as next) -> 
-                    match currentFeatures |> Array.length with
-                        | 0 -> let currentPoints, status, trackError = lucasKanade (grayScale currentFrame) (grayScale previousFrame) previousFeatures in currentStatus, currentFrame, currentPoints, status, trackError
-                        | _ -> next) |>
+            Observable.scan trackFeatures |>
             Observable.subscribe (fun (_, frame, points, status, trackError) -> 
 
                 let totalMissingFeatures = status |> Array.filter ((=)(Convert.ToByte 0)) |> Array.length
