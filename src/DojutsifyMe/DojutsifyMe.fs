@@ -90,6 +90,7 @@ let main args =
     let faceDetectionObservable = 
         faceDetectionTrigger |> 
             Observable.throttle (TimeSpan.FromMilliseconds 20.0) |>
+            Observable.map (fun data -> printfn "%s" "Started faceDetectionTrigger"; data) |>
             Observable.flatmap (fun _ -> imageGrabbed |> 
                                             Observable.first |>
                                             Observable.map tryDetectFace |>  
@@ -97,12 +98,17 @@ let main args =
                                                                  match maybeFace with
                                                                   | None -> NotDetected, frame, Array.empty, Array.empty, Array.empty
                                                                   | Some face -> getFeatures (face, frame, gray) |> 
-                                                                                     (fun (frame, features) -> Detected, frame, features, Array.empty, Array.empty)))
- 
+                                                                                     (fun (frame, features) -> Detected, frame, features, Array.empty, Array.empty))) |>
+            Observable.map (fun data -> printfn "%s" "Ended faceDetectionTrigger"; data)
+                                                                                     
     use webcamImageProcessor =                                                                       
         imageGrabbed |>
             Observable.map (fun frame -> NoDetectionAttempted, frame, Array.empty, Array.empty, Array.empty) |>
             Observable.merge faceDetectionObservable |>
+            Observable.map (fun ((status,_,_,_,_) as data) -> match status with
+                                                                 | Detected | NotDetected -> printfn "%s" "Got the frame from faceDetectionTrigger"
+                                                                 | _ -> printfn "%s" "Got the frame from webcamImageProcessor"; 
+                                                              data) |>
             Observable.scan trackFeatures |>
             Observable.subscribe (fun (_, frame, points, status, trackError) -> 
 
