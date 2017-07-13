@@ -27,10 +27,15 @@ let goodFeaturesToTrack (GrayScaled frame) face =
     keyPointDetector.Detect(frame, mask) |> Array.map (fun p -> p.Point)
 
 let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoints:PointF[]) =
-    
+   
     let mutable currentPoints = Unchecked.defaultof<PointF[]>
     let mutable status = Unchecked.defaultof<byte[]>
     let mutable trackError = Unchecked.defaultof<float32[]>
+
+    // this is an ugly workaround to prevent an exception from ocurring in the CalcOpticalFlowPyrLK when the previous points are empty
+    // and outputing a result that makes the main process try to find a feature in the following frames
+    // i'll think of a better way to do this later
+    if previousPoints.Length = 0 then (Array.zeroCreate 0, Array.create 1 (Convert.ToByte 0), Array.create 1 100.0f) else
 
     CvInvoke.CalcOpticalFlowPyrLK(
         previousFrame, 
