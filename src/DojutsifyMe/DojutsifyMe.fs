@@ -17,6 +17,9 @@ open FSharp.Control.Reactive.Observable;
 open FSharpx.Choice
 open Emgu.CV.Util;
 open FSharpx
+open System.Reactive.Concurrency
+open System.Threading
+
 
 let mainBox = new ImageBox(Location=Point(0,20), Size=Size(500,500), Image=null)
 let secondBox = new ImageBox(Location=Point(500,0), Size=Size(300,250), Image=null)
@@ -86,28 +89,30 @@ let main args =
     let imageGrabbed = capture |> imageGrabbedObservable
 
     let faceDetectionTrigger = new Subject<unit>()
-
+    
     let faceDetectionObservable = 
         faceDetectionTrigger |> 
             Observable.throttle (TimeSpan.FromMilliseconds 20.0) |>
-            Observable.map (fun data -> printfn "%s" "Started faceDetectionTrigger"; data) |>
             Observable.flatmap (fun _ -> imageGrabbed |> 
+                                            Observable.observeOn NewThreadScheduler.Default |>
+                                            Observable.map (fun data -> printfn "%s %d" "Started faceDetectionTrigger in thread" Thread.CurrentThread.ManagedThreadId; data) |>
                                             Observable.first |>
                                             Observable.map tryDetectFace |>  
                                             Observable.map (fun (maybeFace, frame, gray) -> 
                                                                  match maybeFace with
                                                                   | None -> NotDetected, frame, Array.empty, Array.empty, Array.empty
                                                                   | Some face -> getFeatures (face, frame, gray) |> 
-                                                                                     (fun (frame, features) -> Detected, frame, features, Array.empty, Array.empty))) |>
-            Observable.map (fun data -> printfn "%s" "Ended faceDetectionTrigger"; data)
-                                                                                     
+                                                                                     (fun (frame, features) -> Detected, frame, features, Array.empty, Array.empty)) |>
+                                            Observable.map (fun data -> printfn "%s %d" "Ended faceDetectionTrigger in thread" Thread.CurrentThread.ManagedThreadId; data) |>
+                                            Observable.observeOn NewThreadScheduler.Default)
+
     use webcamImageProcessor =                                                                       
         imageGrabbed |>
             Observable.map (fun frame -> NoDetectionAttempted, frame, Array.empty, Array.empty, Array.empty) |>
             Observable.merge faceDetectionObservable |>
             Observable.map (fun ((status,_,_,_,_) as data) -> match status with
-                                                                 | Detected | NotDetected -> printfn "%s" "Got the frame from faceDetectionTrigger"
-                                                                 | _ -> printfn "%s" "Got the frame from webcamImageProcessor"; 
+                                                                 | Detected | NotDetected -> printfn "%s %d" "Got the frame from faceDetectionTrigger in thread" Thread.CurrentThread.ManagedThreadId
+                                                                 | _ -> printfn "%s %d" "Got the frame from webcamImageProcessor in thread" Thread.CurrentThread.ManagedThreadId; 
                                                               data) |>
             Observable.scan trackFeatures |>
             Observable.subscribe (fun (_, frame, points, status, trackError) -> 
@@ -121,6 +126,7 @@ let main args =
                 let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
                 Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
                 CvInvoke.Resize(output, output, Size(500, 300), 0.0, 0.0, Inter.Linear)
+                printfn "%s" "Drawing image"
                 mainBox.Image <- output)
 
     use detectionStatusObservable = 
