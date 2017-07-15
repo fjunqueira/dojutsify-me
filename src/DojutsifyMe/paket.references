@@ -1,3 +1,4 @@
 FSharp.Core
 FSharp.Control.Reactive
 FSharpx.Core
+System.Reactive.Windows.Forms

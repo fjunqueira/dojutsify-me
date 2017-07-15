@@ -5,3 +5,4 @@ nuget FSharp.Core
 nuget FSharpx.Core
 nuget FsUnit
 nuget Nunit.Console
+nuget System.Reactive.Windows.Forms
