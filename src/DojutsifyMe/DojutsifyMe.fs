@@ -18,6 +18,7 @@ open FSharpx.Choice
 open Emgu.CV.Util;
 open FSharpx
 open System.Reactive.Concurrency
+open System.Reactive
 open System.Threading
 
 let mainBox = new ImageBox(Location=Point(0,20), Size=Size(500,500), Image=null)
@@ -66,12 +67,18 @@ let imageGrabbedObservable (capture:VideoCapture) =
                 Observable.filter fst |> 
                 Observable.map snd
 
-let trackFeatures (previousFrame, previousFeatures, _, _) (currentFrame, currentFeatures, _, _) =
-    match currentFeatures |> Array.length with
-        | 0 -> let features, status, trackError = lucasKanade (grayScale currentFrame) (grayScale previousFrame) previousFeatures 
-               in currentFrame, features, status, trackError
+let useFrame status error = 
+    let totalMissingFeatures = status |> Array.filter ((=)(Convert.ToByte 0)) |> Array.length
+    let totalError = error |> Array.sum
+    not (totalError > 75.0f || totalMissingFeatures > 0)                
 
-        | _ -> currentFrame, currentFeatures, Array.empty, Array.empty
+let trackFeatures (previousFrame, previousFeatures) (currentFrame, currentFeatures) =
+    match currentFeatures |> Array.length with
+        | 0 -> let features, _, _ = lucasKanade (grayScale currentFrame) (grayScale previousFrame) previousFeatures 
+               in currentFrame, features
+        
+        | _ -> let features, status, error = lucasKanade (grayScale previousFrame) (grayScale currentFrame) currentFeatures 
+               in if useFrame status error then previousFrame, features else previousFrame, previousFeatures
 
 [<EntryPoint>]
 [<STAThread>]
@@ -84,8 +91,6 @@ let main args =
     capture.Start()
 
     let imageGrabbed = capture |> imageGrabbedObservable
-
-    let faceDetectionTrigger = new Subject<unit>()
     
     let eventLoopScheduler = new EventLoopScheduler()
 
@@ -93,48 +98,26 @@ let main args =
 
     let faceDetectionObservable = 
         imageGrabbed |> 
-            Observable.bufferCount 10 |>
+            Observable.bufferCount 15 |>
             Observable.map Seq.last |>
             Observable.observeOn eventLoopScheduler |>
-            Observable.map (fun data -> printfn "%s %d" "Started faceDetectionTrigger in thread" Thread.CurrentThread.ManagedThreadId; data) |>
             Observable.map tryDetectFace |>
             Observable.filter (fun (maybeFace,_,_) -> Option.isSome <| maybeFace) |>
             Observable.map (fun (maybeFace, frame, gray) -> 
-                                 getFeatures (Option.get <| maybeFace, frame, gray) |> 
-                                 (fun (frame, features) -> frame, features, Array.empty, Array.empty)) |>
-            Observable.map (fun data -> printfn "%s %d" "Ended faceDetectionTrigger in thread" Thread.CurrentThread.ManagedThreadId; data)
-                       
-    let frameRequestedObservable = 
-            Observable.groupJoin 
-                faceDetectionObservable  
-                faceDetectionTrigger 
-                (fun _ -> Observable.interval (TimeSpan.FromMilliseconds 10.0)) 
-                (fun _ -> Observable.interval (TimeSpan.FromMilliseconds 1.0)) 
-                (fun left obsOfRight -> left) |>
-                Observable.map (fun data -> printfn "%s %d" "Join ocurred" Thread.CurrentThread.ManagedThreadId; data)
-
+                                 getFeatures (Option.get maybeFace, frame, gray))
+            
     use webcamImageProcessor =                                                                       
         imageGrabbed |>
-            Observable.map (fun frame -> frame, Array.empty, Array.empty, Array.empty) |>
-            Observable.merge frameRequestedObservable |>
+            Observable.map (fun frame -> frame, Array.empty) |>
+            Observable.merge faceDetectionObservable |>
             Observable.scan trackFeatures |>
             Observable.observeOn controlScheduler |>    
-            Observable.map (fun ((_,features,_,_) as data) -> match features |> Array.length with
-                                                                 | 0 -> printfn "%s %d" "Got the frame from webcamImageProcessor in thread" Thread.CurrentThread.ManagedThreadId; 
-                                                                 | _ -> printfn "%s %d" "Got the frame from faceDetectionTrigger in thread" Thread.CurrentThread.ManagedThreadId
-                                                              data) |>
-            Observable.subscribe (fun (frame, points, status, trackError) -> 
-
-                let totalMissingFeatures = status |> Array.filter ((=)(Convert.ToByte 0)) |> Array.length
-                let totalError = trackError |> Array.sum
-
-                if totalError > 75.0f || totalMissingFeatures > 0 then printfn "%s" "Requested refresh"; faceDetectionTrigger.OnNext(()) else () |> ignore
-                
+            Observable.subscribe (fun (frame, points) -> 
                 let output = new Mat();
                 let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
                 Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
                 CvInvoke.Resize(output, output, Size(500, 300), 0.0, 0.0, Inter.Linear)
-                printfn "%s" "Drawing image"
+
                 mainBox.Image <- output)
 
     Application.EnableVisualStyles()

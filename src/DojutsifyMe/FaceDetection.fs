@@ -26,5 +26,4 @@ let tryExtractFace equalized =
 
     match faces, eyes with
         | ([head],[leftEye;rightEye]) -> Some (head,[leftEye;rightEye])
-        | ([head],[eye]) -> Some (head,[eye])
         | data -> None
