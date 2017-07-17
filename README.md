@@ -4,7 +4,7 @@
 
 The goal here is to create a "snapchat like" video filter that adds [dojutsu](http://naruto.wikia.com/wiki/D%C5%8Djutsu) to the user eyes.
 
-## This is what i've got working so far
+### Here is what I've got working so far
 
 ![alt tag](https://github.com/fjunqueira/dojutsify-me/blob/master/demo.gif)
 
