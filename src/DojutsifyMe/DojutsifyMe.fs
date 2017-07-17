@@ -65,7 +65,7 @@ let trackFeatures (previousFrame, previousFeatures) (currentFrame, currentFeatur
 [<EntryPoint>]
 [<STAThread>]
 let main args = 
-    let form = new Form(Width=800, Height=500, Name="Dojutsify Me")
+    let form = new Form(Width=500, Height=300, Name="Dojutsify Me")
     
     form.Controls.AddRange([|mainBox|])
 
@@ -87,7 +87,7 @@ let main args =
             Observable.filter (fun (maybeFace,_,_) -> Option.isSome <| maybeFace) |>
             Observable.map (fun (maybeFace, frame, gray) -> 
                                  getFeatures (Option.get maybeFace, frame, gray))
-            
+        
     use webcamImageProcessor =                                                                       
         imageGrabbed |>
             Observable.map (fun frame -> frame, Array.empty) |>
@@ -95,7 +95,7 @@ let main args =
             Observable.scan trackFeatures |>
             Observable.observeOn controlScheduler |>    
             Observable.subscribe (fun (frame, points) -> 
-
+                // a bounding box that contains all points should contain the eyes
                 let output = new Mat();
                 let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
                 Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)

@@ -17,11 +17,6 @@ let appReferences  =
 // version info
 let version = "0.1"  // or retrieve from CI server
 
-let testAssemblies = !! (buildDir + "*Test.dll")
-Target "Test" (fun _ -> 
-    testAssemblies |> NUnit3 id
-)
-
 // Targets
 Target "Clean" (fun _ ->
     CleanDirs [buildDir; deployDir]
@@ -44,7 +39,6 @@ Target "Deploy" (fun _ ->
 // Build order
 "Clean"
   ==> "Build"
-  ==> "Test"
   ==> "Deploy"
 
 // start build
