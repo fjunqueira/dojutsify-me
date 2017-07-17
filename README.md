@@ -15,11 +15,11 @@ No advanced techniques like facial landmark detection, ASM or AAM are being used
 
 ### Build instructions
 
-1. Open the DoujutsifyMe.fsproj and replace the following lines with your EmguCV installation dir:
+1. Open the DojutsifyMe.fsproj and replace the following lines with your EmguCV installation dir:
 
 ```
     <Reference Include="../../../emgucv/bin/Emgu.CV.World.dll" />
     <Reference Include="../../../emgucv/bin/Emgu.CV.UI.dll" />
 ```
 
-2. Run build.sh
+2. Run `build.sh`
