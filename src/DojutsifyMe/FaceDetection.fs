@@ -1,10 +1,8 @@
 module DojutsifyMe.FaceDetection
 
 open Emgu.CV;
-open Emgu.CV.Structure;
 open System.Drawing;
 open DojutsifyMe.ImageProcessing
-open FSharpx.Choice
 
 let detectEyes (EqualizedHistogram frame) (face:Rectangle) =
     use faceRegion = new Mat(frame, face)
@@ -26,4 +24,4 @@ let tryExtractFace equalized =
 
     match faces, eyes with
         | ([head],[leftEye;rightEye]) -> Some (head,[leftEye;rightEye])
-        | data -> None
+        | _ -> None
