@@ -22,7 +22,7 @@ No advanced techniques like facial landmark detection, ASM or AAM are being used
 1. Open the DojutsifyMe.fsproj and replace the following line with your EmguCV installation dir:
 
 ```
-    <EmguCVDir>..\..\..\emgucv-dotnetcore\libs</EmguCVDir>
+    <EmguCVDir>..\..\..\emgucv\libs</EmguCVDir>
 ```
 
 2. Run `build.sh`
