@@ -13,13 +13,9 @@ open DojutsifyMe.FaceTracking;
 open DojutsifyMe.ImageProcessing;
 open FSharp.Control;
 open FSharp.Control.Reactive;
-open FSharp.Control.Reactive.Observable;
-open FSharpx.Choice
 open Emgu.CV.Util;
 open FSharpx
 open System.Reactive.Concurrency
-open System.Reactive
-open System.Threading
 
 let mainBox = new ImageBox(Location=Point(0,0), Size=Size(500, 500), Image=null)
 
@@ -35,7 +31,7 @@ let tryDetectFace (frame:Mat) =
         tryExtractFace |> 
         (fun maybeFace -> maybeFace, frame, grayscaled)
 
-let getFeatures ((face, eyes), frame, grayscaled) = 
+let getFeatures ((_, eyes), frame, grayscaled) = 
         
     eyes |> List.toArray |> 
         Array.collect (goodFeaturesToTrack grayscaled) |> 
@@ -64,7 +60,7 @@ let trackFeatures (previousFrame, previousFeatures) (currentFrame, currentFeatur
 
 [<EntryPoint>]
 [<STAThread>]
-let main args = 
+let main _ = 
     let form = new Form(Width=500, Height=300, Name="Dojutsify Me")
     
     form.Controls.AddRange([|mainBox|])
@@ -76,8 +72,6 @@ let main args =
     
     let eventLoopScheduler = new EventLoopScheduler()
 
-    let controlScheduler = ControlScheduler(form)
-
     let faceDetectionObservable = 
         imageGrabbed |> 
             Observable.bufferCount 15 |>
@@ -87,21 +81,19 @@ let main args =
             Observable.filter (fun (maybeFace,_,_) -> Option.isSome <| maybeFace) |>
             Observable.map (fun (maybeFace, frame, gray) -> 
                                  getFeatures (Option.get maybeFace, frame, gray))
-        
-    use webcamImageProcessor =                                                                       
-        imageGrabbed |>
-            Observable.map (fun frame -> frame, Array.empty) |>
-            Observable.merge faceDetectionObservable |>
-            Observable.scan trackFeatures |>
-            Observable.observeOn controlScheduler |>    
-            Observable.subscribe (fun (frame, points) -> 
-                // a bounding box that contains all points should contain the eyes
-                let output = new Mat();
-                let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
-                Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
-                CvInvoke.Resize(output, output, Size(500, 300), 0.0, 0.0, Inter.Linear)
+                                                                              
+    imageGrabbed |>
+        Observable.map (fun frame -> frame, Array.empty) |>
+        Observable.merge faceDetectionObservable |>
+        Observable.scan trackFeatures |>
+        Observable.subscribe (fun (frame, points) -> 
+            // a bounding box that contains all points should contain the eyes
+            let output = new Mat();
+            let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
+            Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
+            CvInvoke.Resize(output, output, Size(500, 300), 0.0, 0.0, Inter.Linear)
 
-                mainBox.Image <- output)
+            mainBox.Image <- output) |> ignore
 
     Application.EnableVisualStyles()
     Application.SetCompatibleTextRenderingDefault(false)

@@ -5,14 +5,6 @@ open Emgu.CV;
 open Emgu.CV.Features2D;
 open Emgu.CV.Structure;
 open System.Drawing;
-open Emgu.CV.Util;
-open Emgu.CV;
-open Emgu.CV.CvEnum;
-open Emgu.CV.Features2D;
-open Emgu.CV.Structure;
-open Emgu.CV.Util;
-open Emgu.CV.XFeatures2D;
-open Emgu.Util;
 open DojutsifyMe.ImageProcessing;
 
 let goodFeaturesToTrack (GrayScaled frame) face = 

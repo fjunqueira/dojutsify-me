@@ -23,6 +23,10 @@
   <Target Name="CopyCvExtern" AfterTargets="Build;Publish">
       <Copy SourceFiles="$(EmguCVDir)\$(CvExtern)" DestinationFolder="$(OutDir)"/>
       <Copy SourceFiles="$(EmguCVDir)\$(CvExtern)" DestinationFolder="$(PublishDir)"/>
+      <Copy SourceFiles="..\..\haarcascades\haarcascade_frontalface_default.xml" DestinationFolder="$(OutDir)"/>
+      <Copy SourceFiles="..\..\haarcascades\haarcascade_frontalface_default.xml" DestinationFolder="$(PublishDir)"/>
+      <Copy SourceFiles="..\..\haarcascades\haarcascade_eye.xml" DestinationFolder="$(OutDir)"/>
+      <Copy SourceFiles="..\..\haarcascades\haarcascade_eye.xml" DestinationFolder="$(PublishDir)"/>
   </Target>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

@@ -1,8 +1,6 @@
 module DojutsifyMe.ImageProcessing
 
 open Emgu.CV;
-open Emgu.CV.Structure;
-open System.Drawing;
 
 type GrayScaled = GrayScaled of Mat
 type EqualizedHistogram = EqualizedHistogram of Mat
