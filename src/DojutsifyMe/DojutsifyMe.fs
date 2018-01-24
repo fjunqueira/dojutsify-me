@@ -2,10 +2,7 @@ module DojutsifyMe.Main
 
 open System;
 open System.Drawing;
-open System.Windows.Forms;
 open Emgu.CV;
-open Emgu.CV.UI;
-open Emgu.CV.CvEnum;
 open Emgu.CV.Structure;
 open Emgu.CV.Features2D;
 open DojutsifyMe.FaceDetection;
@@ -16,8 +13,6 @@ open FSharp.Control.Reactive;
 open Emgu.CV.Util;
 open FSharpx
 open System.Reactive.Concurrency
-
-let mainBox = new ImageBox(Location=Point(0,0), Size=Size(500, 500), Image=null)
 
 let retrieveFrame channel (capture:VideoCapture) =
     let frame = new Mat()
@@ -59,12 +54,7 @@ let trackFeatures (previousFrame, previousFeatures) (currentFrame, currentFeatur
                in if useFrame status error then previousFrame, features else previousFrame, previousFeatures
 
 [<EntryPoint>]
-[<STAThread>]
-let main _ = 
-    let form = new Form(Width=500, Height=300, Name="Dojutsify Me")
-    
-    form.Controls.AddRange([|mainBox|])
-
+let main _ =
     let capture = new VideoCapture()
     capture.Start()
 
@@ -91,12 +81,8 @@ let main _ =
             let output = new Mat();
             let keypoints = new VectorOfKeyPoint(points |> Array.map (fun p -> MKeyPoint(Point=p)))
             Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
-            CvInvoke.Resize(output, output, Size(500, 300), 0.0, 0.0, Inter.Linear)
+            CvInvoke.Imshow("Dojutsify Me", output)
+            CvInvoke.WaitKey(1) |> ignore) |> ignore
 
-            mainBox.Image <- output) |> ignore
-
-    Application.EnableVisualStyles()
-    Application.SetCompatibleTextRenderingDefault(false)
-    Application.Run(form)
-
+    Console.ReadKey() |> ignore    
     0
