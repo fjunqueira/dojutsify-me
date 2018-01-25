@@ -7,18 +7,18 @@ open Emgu.CV.Structure;
 open System.Drawing;
 open DojutsifyMe.ImageProcessing;
 
-let goodFeaturesToTrack (GrayScaled frame) face = 
+let goodFeaturesToTrack (GrayScaled frame) roiArea = 
     let keyPointDetector = new GFTTDetector(5, 0.01, 1.0, 3, false, 0.04);
 
     let mask = new Mat(frame.Size, Emgu.CV.CvEnum.DepthType.Cv8U, 1);
     mask.SetTo(MCvScalar(0.0))
 
-    let roi = new Mat(mask, face);
+    let roi = new Mat(mask, roiArea);
     roi.SetTo(MCvScalar(255.0))
     
-    keyPointDetector.Detect(frame, mask) |> Array.map (fun p -> p.Point)
+    keyPointDetector.Detect(frame, mask) |> Array.toList |> List.map (fun p -> p.Point)
 
-let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoints:PointF[]) =
+let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoints:PointF list) =
    
     let mutable currentPoints = Unchecked.defaultof<PointF[]>
     let mutable status = Unchecked.defaultof<byte[]>
@@ -27,12 +27,12 @@ let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoint
     // This is an ugly workaround to prevent an exception from ocurring in the CalcOpticalFlowPyrLK function when the previousPoints are empty
     // It outputs a result that makes the main process try to find a feature in the next frames
     // I'll think of a better way to do this later
-    if previousPoints.Length = 0 then (Array.zeroCreate 0, Array.create 1 (Convert.ToByte 0), Array.create 1 100.0f) else
+    if previousPoints.Length = 0 then ([], [(Convert.ToByte 0)], [100.0f]) else
 
     CvInvoke.CalcOpticalFlowPyrLK(
         previousFrame, 
         nextFrame, 
-        previousPoints, 
+        previousPoints |> List.toArray, 
         Size(15,15), 
         2, 
         MCvTermCriteria(10, 0.03), 
@@ -40,4 +40,4 @@ let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoint
         &status, 
         &trackError)
 
-    (currentPoints, status, trackError)
+    (Array.toList currentPoints, Array.toList status, Array.toList trackError)
