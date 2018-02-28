@@ -81,7 +81,7 @@ Target "Publish" (fun _ ->
 // --------------------------------------------------------------------------------------
 
 "Clean"
-  ==> "InstallDotNetCLI"
+//   ==> "InstallDotNetCLI"
   ==> "Restore"
   ==> "Build"
   ==> "Publish"

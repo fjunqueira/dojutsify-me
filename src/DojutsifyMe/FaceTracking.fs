@@ -1,14 +1,13 @@
 module DojutsifyMe.FaceTracking
 
-open System;
 open Emgu.CV;
 open Emgu.CV.Features2D;
 open Emgu.CV.Structure;
 open System.Drawing;
 open DojutsifyMe.ImageProcessing;
 
-let goodFeaturesToTrack (GrayScaled frame) roiArea = 
-    let keyPointDetector = new GFTTDetector(5, 0.01, 1.0, 3, false, 0.04);
+let goodFeaturesToTrack (GrayScaled frame) maxCorners roiArea = 
+    let keyPointDetector = new GFTTDetector(maxCorners, 0.01, 1.0, 3, false, 0.04);
 
     let mask = new Mat(frame.Size, Emgu.CV.CvEnum.DepthType.Cv8U, 1);
     mask.SetTo(MCvScalar(0.0))
@@ -27,12 +26,12 @@ let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoint
     // This is an ugly workaround to prevent an exception from ocurring in the CalcOpticalFlowPyrLK function when the previousPoints are empty
     // It outputs a result that makes the main process try to find a feature in the next frames
     // I'll think of a better way to do this later
-    if previousPoints.Length = 0 then ([], [(Convert.ToByte 0)], [100.0f]) else
+    if previousPoints.Length = 0 then ([], [], []) else
 
     CvInvoke.CalcOpticalFlowPyrLK(
         previousFrame, 
         nextFrame, 
-        previousPoints |> List.toArray, 
+        previousPoints |> List.toArray,
         Size(15,15), 
         2, 
         MCvTermCriteria(10, 0.03), 

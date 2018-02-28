@@ -3,31 +3,64 @@ module DojutsifyMe.FaceDetection
 open Emgu.CV;
 open System.Drawing;
 open DojutsifyMe.ImageProcessing
+open DojutsifyMe.Utils
 
-let detectEyes (EqualizedHistogram frame) (face:Rectangle) =
-    use faceRegion = new Mat(frame, face)
-    use eyeCascade = new CascadeClassifier("haarcascade_eye.xml")
-    
-    eyeCascade.DetectMultiScale(faceRegion, 1.1, 10, Size(10, 10), Size(70, 70)) |>
-        Array.map (fun (eye:Rectangle) -> eye.Offset(Point(face.X, face.Y)); eye) |> 
+let faceClassifier = new CascadeClassifier("haarcascade_frontalface_alt.xml")
+
+let leftEyeClassifier = new CascadeClassifier("haarcascade_lefteye_2splits.xml")
+
+let rightEyeClassifier = new CascadeClassifier("haarcascade_righteye_2splits.xml")
+
+let detectEyes (GrayScaled frame) eyeArea (classifier:CascadeClassifier) =
+    use eyeROI = new Mat(frame, eyeArea)
+     
+    classifier.DetectMultiScale(eyeROI, 1.15, 2, Size(30, 30)) |>
+        Array.map (fun eye -> eye.Offset(Point(eyeArea.X, eyeArea.Y)); eye) |>
         Array.toList
 
-let detectFace (EqualizedHistogram frame) = 
-    use faceCascade = new CascadeClassifier("haarcascade_frontalface_alt.xml")
-    
-    faceCascade.DetectMultiScale(frame, 1.1, 2, Size(150, 150)) |> 
+let detectFaces (GrayScaled frame) = 
+    faceClassifier.DetectMultiScale(frame, 1.1, 2, Size(150, 150)) |> 
         Array.toList
 
-let tryFindingEyes equalized face = 
-    let eyes = detectEyes equalized face
+let calculateEyeArea (face:Rectangle) =
+    let leftEyeArea =  Rectangle(face.X + face.Width / 16 + (face.Width - 2 * face.Width / 16) / 2, 
+                                    (int) ((float)face.Y + ((float) face.Height / 4.5)), 
+                                    (face.Width - 2 * face.Width / 16) / 2, 
+                                    (face.Height / 3))
 
-    match eyes with
-    | [_; _] -> Some eyes
-    | _ -> None
+    let rightEyeArea = Rectangle(face.X + face.Width / 16,
+                                    (int) ((float)face.Y + ((float) face.Height / 4.5)), 
+                                    (face.Width - 2 * face.Width / 16) / 2, 
+                                    (face.Height / 3))
 
-let tryFindingFace equalized =
-    let faces = equalized |> detectFace
+    (leftEyeArea, rightEyeArea)
 
-    match faces with
-    | [head] -> Some head
-    | _ -> None
+// let refineEyeArea (GrayScaled frame) (eyeArea:Rectangle) =
+//     let size = 24
+//     let refinedArea = Rectangle(eyeArea.X, eyeArea.Y + eyeArea.Height * 0.4f, eyeArea.Width, (int)((float)eyeArea.Height * 0.6f))
+//     use refinedAreaROI = new Mat(frame, refinedArea)
+//     let (minVal, maxVal, minLoc, maxLoc) = CvInvoke.MinMaxLoc(refinedAreaROI)
+//     let iris = Point(minLoc.X + refinedArea.X, minLoc.Y + refinedArea.Y)
+    
+//     Rectangle((int) iris.X - size / 2, (int) iris.Y- size / 2, size, size)
+
+let tryFindingEyes frame faceArea = 
+    
+    let (leftEyeArea, rightEyeArea) = calculateEyeArea faceArea
+
+    let detectEyeInFrame = detectEyes frame
+
+    let leftEye =  detectEyeInFrame leftEyeArea  leftEyeClassifier
+    let rightEye = detectEyeInFrame rightEyeArea rightEyeClassifier
+
+    let eyes = match (leftEye, rightEye) with
+               | ([left], [right]) -> Some (left, right)
+               | _ -> None
+
+    //mapTuple eyes refineEyeArea frame        
+    eyes
+
+let tryFindingFace frame =
+    frame |> detectFaces 
+        |> List.sortByDescending (fun face -> face.Width * face.Height) 
+        |> List.tryHead

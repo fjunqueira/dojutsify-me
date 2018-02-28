@@ -4,11 +4,12 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net461</TargetFramework>
     <DebugType>portable</DebugType>
-    <EmguCVDir>..\..\..\emgucv-dotnetcore\libs</EmguCVDir>
+    <EmguCVDir>C:\Emgu\emgucv-windesktop 3.3.0.2824\bin</EmguCVDir>
     <CvExtern Condition="'$(OS)' == 'Windows_NT'">cvextern.dll</CvExtern>
     <CvExtern Condition="'$(OS)' == 'Unix'">libcvextern.so</CvExtern>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Utils.fs" />
     <Compile Include="ImageProcessing.fs" />
     <Compile Include="FaceDetection.fs" />
     <Compile Include="FaceTracking.fs" />
@@ -21,14 +22,14 @@
     <Reference Include="System.ServiceModel" />
   </ItemGroup>
   <Target Name="CopyCvExtern" AfterTargets="Build;Publish">
-      <Copy SourceFiles="$(EmguCVDir)\$(CvExtern)" DestinationFolder="$(OutDir)"/>
-      <Copy SourceFiles="$(EmguCVDir)\$(CvExtern)" DestinationFolder="$(PublishDir)"/>
-      <Copy SourceFiles="..\..\haarcascades\haarcascade_frontalface_default.xml" DestinationFolder="$(OutDir)"/>
-      <Copy SourceFiles="..\..\haarcascades\haarcascade_frontalface_default.xml" DestinationFolder="$(PublishDir)"/>
-      <Copy SourceFiles="..\..\haarcascades\haarcascade_frontalface_alt.xml" DestinationFolder="$(OutDir)"/>
-      <Copy SourceFiles="..\..\haarcascades\haarcascade_frontalface_alt.xml" DestinationFolder="$(PublishDir)"/>
-      <Copy SourceFiles="..\..\haarcascades\haarcascade_eye.xml" DestinationFolder="$(OutDir)"/>
-      <Copy SourceFiles="..\..\haarcascades\haarcascade_eye.xml" DestinationFolder="$(PublishDir)"/>
+      <Copy SourceFiles="$(EmguCVDir)\$(CvExtern)" DestinationFolder="$(OutDir)" />
+      <Copy SourceFiles="$(EmguCVDir)\$(CvExtern)" DestinationFolder="$(PublishDir)" />
+      <Copy SourceFiles="..\..\haarcascades\haarcascade_frontalface_alt.xml" DestinationFolder="$(OutDir)" />
+      <Copy SourceFiles="..\..\haarcascades\haarcascade_frontalface_alt.xml" DestinationFolder="$(PublishDir)" />
+      <Copy SourceFiles="..\..\haarcascades\haarcascade_lefteye_2splits.xml" DestinationFolder="$(OutDir)" />
+      <Copy SourceFiles="..\..\haarcascades\haarcascade_lefteye_2splits.xml" DestinationFolder="$(PublishDir)" />
+      <Copy SourceFiles="..\..\haarcascades\haarcascade_righteye_2splits.xml" DestinationFolder="$(OutDir)" />
+      <Copy SourceFiles="..\..\haarcascades\haarcascade_righteye_2splits.xml" DestinationFolder="$(PublishDir)" />
   </Target>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
