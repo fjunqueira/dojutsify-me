@@ -35,14 +35,15 @@ let calculateEyeArea (face:Rectangle) =
 
     (leftEyeArea, rightEyeArea)
 
-// let refineEyeArea (GrayScaled frame) (eyeArea:Rectangle) =
-//     let size = 24
-//     let refinedArea = Rectangle(eyeArea.X, eyeArea.Y + eyeArea.Height * 0.4f, eyeArea.Width, (int)((float)eyeArea.Height * 0.6f))
-//     use refinedAreaROI = new Mat(frame, refinedArea)
-//     let (minVal, maxVal, minLoc, maxLoc) = CvInvoke.MinMaxLoc(refinedAreaROI)
-//     let iris = Point(minLoc.X + refinedArea.X, minLoc.Y + refinedArea.Y)
+let refineEyeArea (GrayScaled frame) (eyeArea:Rectangle) =
+    //let size = 30
+    let refinedArea = Rectangle(eyeArea.X, (int) ((float) eyeArea.Y + (float) eyeArea.Height * 0.4), eyeArea.Width, (int) ((float)eyeArea.Height * 0.6));
+    // use refinedAreaROI = new Mat(frame, refinedArea)
+    // let (minVal, maxVal, minLoc, maxLoc) = minMaxLoc refinedAreaROI
+    // let iris = Point(minLoc.X + refinedArea.X, minLoc.Y + refinedArea.Y)
     
-//     Rectangle((int) iris.X - size / 2, (int) iris.Y- size / 2, size, size)
+    // Rectangle((int) iris.X - size / 2, (int) iris.Y- size / 2, size, size)
+    refinedArea
 
 let tryFindingEyes frame faceArea = 
     
@@ -57,8 +58,8 @@ let tryFindingEyes frame faceArea =
                | ([left], [right]) -> Some (left, right)
                | _ -> None
 
-    //mapTuple eyes refineEyeArea frame        
-    eyes
+    Option.map (mapTuple <| refineEyeArea frame) eyes
+    //eyes
 
 let tryFindingFace frame =
     frame |> detectFaces 

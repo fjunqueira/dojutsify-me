@@ -15,6 +15,7 @@ open Emgu.CV.Util;
 open FSharpx
 open FSharpx.Reader
 open FSharpx
+open Emgu.CV.CvEnum
 
 // Maximum number of features that should be tracked (5 per eye)
 let maxCorners = 10
@@ -70,10 +71,25 @@ let frameProcessingPipeline =
             let face = Option.get maybeFace
             let (leftEye, rightEye) = Option.get maybeEyes
 
+            let (GrayScaled gray) = args.gray
+            let leyeDebug = new Mat(gray.Clone(), leftEye)
+            let reyeDebug = new Mat(gray.Clone(), rightEye)
+
             CvInvoke.Rectangle(faceDebug, face, MCvScalar(0.0, 0.0, 255.0))
             CvInvoke.Rectangle(faceDebug, leftEye, MCvScalar(255.0, 0.0, 0.0))
             CvInvoke.Rectangle(faceDebug, rightEye, MCvScalar(255.0, 0.0, 0.0))
             CvInvoke.Imshow("Debug View", faceDebug)
+
+            let (lminVal, lmaxVal, lminLoc, lmaxLoc) = minMaxLoc leyeDebug
+            printfn "Max val in leye %f" lmaxVal
+            CvInvoke.Threshold(leyeDebug, leyeDebug, lmaxVal * 0.15,255.0,ThresholdType.Binary) |> ignore
+
+            let (rminVal, rmaxVal, rminLoc, rmaxLoc) = minMaxLoc reyeDebug
+            printfn "Max val in reye %f" rmaxVal
+            CvInvoke.Threshold(reyeDebug, reyeDebug, rmaxVal * 0.15,255.0,ThresholdType.Binary) |> ignore
+
+            CvInvoke.Imshow("Left Eye", leyeDebug)
+            CvInvoke.Imshow("Right Eye", reyeDebug)
             CvInvoke.WaitKey(1) |> ignore
 
         return ()
