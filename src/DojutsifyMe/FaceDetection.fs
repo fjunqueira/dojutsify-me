@@ -36,14 +36,17 @@ let calculateEyeArea (face:Rectangle) =
     (leftEyeArea, rightEyeArea)
 
 let refineEyeArea (GrayScaled frame) (eyeArea:Rectangle) =
-    //let size = 30
-    let refinedArea = Rectangle(eyeArea.X, (int) ((float) eyeArea.Y + (float) eyeArea.Height * 0.4), eyeArea.Width, (int) ((float)eyeArea.Height * 0.6));
-    // use refinedAreaROI = new Mat(frame, refinedArea)
-    // let (minVal, maxVal, minLoc, maxLoc) = minMaxLoc refinedAreaROI
-    // let iris = Point(minLoc.X + refinedArea.X, minLoc.Y + refinedArea.Y)
     
-    // Rectangle((int) iris.X - size / 2, (int) iris.Y- size / 2, size, size)
-    refinedArea
+    let refinedArea = Rectangle(eyeArea.X, (int) ((float) eyeArea.Y + (float) eyeArea.Height * 0.4), eyeArea.Width, (int) ((float)eyeArea.Height * 0.6));
+    use refinedAreaROI = new Mat(frame, refinedArea)
+    let (_, _, minLoc, _) = minMaxLoc refinedAreaROI
+    let iris = Point(minLoc.X + refinedArea.X, minLoc.Y + refinedArea.Y)
+    // printfn "Refined area height %d" refinedArea.Height
+    // printfn "Refined area width %d" refinedArea.Width
+    let size = 10
+    //ATTEMPT TO MOVE AROUND REDUCING STD DEVIATION
+    Rectangle((int) iris.X - size / 2, (int) iris.Y- size / 2, size, size)
+    //refinedArea
 
 let tryFindingEyes frame faceArea = 
     

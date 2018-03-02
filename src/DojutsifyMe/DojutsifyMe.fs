@@ -40,6 +40,19 @@ let tryFindingFeatures maybeEyes = Reader.asks (fun args -> Option.map (mapTuple
 //     let mergeTrackingResult ((lp, ls, lt), (rp, rs, rt)) = ((lp, rp), List.append ls rs, List.append lt rt)
 //     Reader.asks (fun args -> mapTuple (lucasKanade args.gray args.previousGray) args.previousPoints |> mergeTrackingResult)
 
+let debug (leyeDebug:Mat) (reyeDebug:Mat) = 
+    let lclone = leyeDebug.Clone()
+    let rclone = reyeDebug.Clone()
+
+    // CvInvoke.Threshold(leyeDebug, lclone, lmaxVal*pct, 255.0, ThresholdType.Binary) |> ignore
+    // CvInvoke.Threshold(reyeDebug, rclone, rmaxVal*pct, 255.0, ThresholdType.Binary) |> ignore
+    // CvInvoke.Circle(lclone, lmaxLoc, 2, MCvScalar(255.0,0.0,0.0))
+    // CvInvoke.Circle(rclone, rmaxLoc, 2, MCvScalar(255.0,0.0,0.0))
+    CvInvoke.Resize(lclone, lclone, Size(100, 100), 0.0, 0.0, Inter.Cubic);
+    CvInvoke.Resize(rclone, rclone, Size(100, 100), 0.0, 0.0, Inter.Cubic);
+    CvInvoke.Imshow("Left Eye", lclone)
+    CvInvoke.Imshow("Right Eye", rclone)
+
 let frameProcessingPipeline = 
     reader {
         
@@ -66,30 +79,32 @@ let frameProcessingPipeline =
 
         if Option.isSome maybeEyes then
             let! args = ask
-            let faceDebug = args.frame.Clone()
             
             let face = Option.get maybeFace
             let (leftEye, rightEye) = Option.get maybeEyes
 
             let (GrayScaled gray) = args.gray
+            let faceDebug = gray.Clone()
             let leyeDebug = new Mat(gray.Clone(), leftEye)
             let reyeDebug = new Mat(gray.Clone(), rightEye)
-
+            
             CvInvoke.Rectangle(faceDebug, face, MCvScalar(0.0, 0.0, 255.0))
             CvInvoke.Rectangle(faceDebug, leftEye, MCvScalar(255.0, 0.0, 0.0))
             CvInvoke.Rectangle(faceDebug, rightEye, MCvScalar(255.0, 0.0, 0.0))
             CvInvoke.Imshow("Debug View", faceDebug)
 
-            let (lminVal, lmaxVal, lminLoc, lmaxLoc) = minMaxLoc leyeDebug
-            printfn "Max val in leye %f" lmaxVal
-            CvInvoke.Threshold(leyeDebug, leyeDebug, lmaxVal * 0.15,255.0,ThresholdType.Binary) |> ignore
+            // let (lminVal, lmaxVal, lminLoc, lmaxLoc) = minMaxLoc leyeDebug
 
-            let (rminVal, rmaxVal, rminLoc, rmaxLoc) = minMaxLoc reyeDebug
-            printfn "Max val in reye %f" rmaxVal
-            CvInvoke.Threshold(reyeDebug, reyeDebug, rmaxVal * 0.15,255.0,ThresholdType.Binary) |> ignore
+            // let (rminVal, rmaxVal, rminLoc, rmaxLoc) = minMaxLoc reyeDebug
 
-            CvInvoke.Imshow("Left Eye", leyeDebug)
-            CvInvoke.Imshow("Right Eye", reyeDebug)
+            debug leyeDebug reyeDebug |> ignore
+
+            //let teste = CvInvoke.Mean() stdmean ATTEMPT TO MOVE AROUND REDUCING STD DEVIATION
+
+            // debug leyeDebug reyeDebug lmaxVal rmaxVal 0.25 |> ignore
+
+            // debug leyeDebug reyeDebug lmaxVal rmaxVal 0.30 |> ignore
+
             CvInvoke.WaitKey(1) |> ignore
 
         return ()
@@ -131,7 +146,7 @@ let main _ =
             //let keypoints = new VectorOfKeyPoint(points |> List.map (fun p -> MKeyPoint(Point=p)) |> List.toArray)
             //Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
             
-            CvInvoke.Imshow("Dojutsify Me", output)
+            //CvInvoke.Imshow("Dojutsify Me", output)
             CvInvoke.WaitKey(1) |> ignore
         ) |> ignore
 
