@@ -85,25 +85,34 @@ let frameProcessingPipeline =
 
             let (GrayScaled gray) = args.gray
             let faceDebug = gray.Clone()
-            let leyeDebug = new Mat(gray.Clone(), leftEye)
-            let reyeDebug = new Mat(gray.Clone(), rightEye)
+
+            let l1 = refineEyeArea args.gray 24 leftEye
+            // let r2 = refineEyeArea args.gray 10 rightEye
+
+            // CvInvoke.Rectangle(faceDebug, l1, MCvScalar(255.0, 0.0, 0.0))
+            // CvInvoke.Rectangle(faceDebug, r2, MCvScalar(255.0, 0.0, 0.0))
+
+            let leyeDebug = new Mat(faceDebug, leftEye)
+            let reyeDebug = new Mat(faceDebug, rightEye)
+
+            let (mean, _) = meanStdDev leyeDebug
+
+            printfn "Left Mean:   %A" <| mean.ToArray()
+            //printfn "Left StdDev: %A" <| stdDev.ToArray()
+
+            let (mean, _) = meanStdDev reyeDebug
             
+            printfn "Right Mean:   %A" <| mean.ToArray()
+            //printfn "Right StdDev: %A" <| stdDev.ToArray()
+
+            let leyeDebug = rangeTreshold 60.0 70.0 <| new Mat(faceDebug.Clone(), l1)
+
+            debug leyeDebug reyeDebug |> ignore
+
             CvInvoke.Rectangle(faceDebug, face, MCvScalar(0.0, 0.0, 255.0))
             CvInvoke.Rectangle(faceDebug, leftEye, MCvScalar(255.0, 0.0, 0.0))
             CvInvoke.Rectangle(faceDebug, rightEye, MCvScalar(255.0, 0.0, 0.0))
             CvInvoke.Imshow("Debug View", faceDebug)
-
-            // let (lminVal, lmaxVal, lminLoc, lmaxLoc) = minMaxLoc leyeDebug
-
-            // let (rminVal, rmaxVal, rminLoc, rmaxLoc) = minMaxLoc reyeDebug
-
-            debug leyeDebug reyeDebug |> ignore
-
-            //let teste = CvInvoke.Mean() stdmean ATTEMPT TO MOVE AROUND REDUCING STD DEVIATION
-
-            // debug leyeDebug reyeDebug lmaxVal rmaxVal 0.25 |> ignore
-
-            // debug leyeDebug reyeDebug lmaxVal rmaxVal 0.30 |> ignore
 
             CvInvoke.WaitKey(1) |> ignore
 
