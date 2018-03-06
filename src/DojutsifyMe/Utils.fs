@@ -39,3 +39,8 @@ let rangeTreshold minValue maxValue (input:Mat) =
     CvInvoke.InRange(input, new ScalarArray(new MCvScalar(minValue)), new ScalarArray(new MCvScalar(maxValue)), output)
     CvInvoke.BitwiseNot(output, output)
     output
+
+let canny input = 
+    let output = new Mat()
+    CvInvoke.Canny(input, output,75.0, 200.0)
+    output

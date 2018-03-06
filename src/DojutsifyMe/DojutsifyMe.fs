@@ -32,7 +32,7 @@ let retrieveFrame channel (capture:VideoCapture) =
 
 let tryFindingFace = Reader.asks (fun args -> args.gray |> tryFindingFace)
 
-let tryFindingEyes maybeFace = Reader.asks (fun args -> Option.map (tryFindingEyes args.gray) maybeFace |> Option.flatten)
+let tryFindingEyes maybeFace size = Reader.asks (fun args -> Option.map (tryFindingEyes args.gray size) maybeFace |> Option.flatten)
 
 let tryFindingFeatures maybeEyes = Reader.asks (fun args -> Option.map (mapTuple <| goodFeaturesToTrack args.gray maxCorners) maybeEyes)
 
@@ -40,7 +40,7 @@ let tryFindingFeatures maybeEyes = Reader.asks (fun args -> Option.map (mapTuple
 //     let mergeTrackingResult ((lp, ls, lt), (rp, rs, rt)) = ((lp, rp), List.append ls rs, List.append lt rt)
 //     Reader.asks (fun args -> mapTuple (lucasKanade args.gray args.previousGray) args.previousPoints |> mergeTrackingResult)
 
-let debug (leyeDebug:Mat) (reyeDebug:Mat) = 
+let debug (leyeDebug:Mat) (reyeDebug:Mat) (teste:Mat) = 
     let lclone = leyeDebug.Clone()
     let rclone = reyeDebug.Clone()
 
@@ -50,8 +50,10 @@ let debug (leyeDebug:Mat) (reyeDebug:Mat) =
     // CvInvoke.Circle(rclone, rmaxLoc, 2, MCvScalar(255.0,0.0,0.0))
     CvInvoke.Resize(lclone, lclone, Size(100, 100), 0.0, 0.0, Inter.Cubic);
     CvInvoke.Resize(rclone, rclone, Size(100, 100), 0.0, 0.0, Inter.Cubic);
-    CvInvoke.Imshow("Left Eye", lclone)
-    CvInvoke.Imshow("Right Eye", rclone)
+    CvInvoke.Resize(teste, teste, Size(100, 100), 0.0, 0.0, Inter.Cubic);
+    CvInvoke.Imshow("24", lclone)
+    CvInvoke.Imshow("10", rclone)
+    CvInvoke.Imshow("24 gray", teste)
 
 let frameProcessingPipeline = 
     reader {
@@ -75,46 +77,48 @@ let frameProcessingPipeline =
         //     return newPoints
 
         let! maybeFace = tryFindingFace
-        let! maybeEyes = tryFindingEyes maybeFace
+        let! maybeEyes24 = tryFindingEyes maybeFace 30
+        let! maybeEyes10 = tryFindingEyes maybeFace 7
 
-        if Option.isSome maybeEyes then
+        if Option.isSome maybeEyes24 && Option.isSome maybeEyes10 then
             let! args = ask
             
-            let face = Option.get maybeFace
-            let (leftEye, rightEye) = Option.get maybeEyes
+            let (leftEye24, rightEye24) = maybeEyes24 |> Option.get
+            let (leftEye10, rightEye10) = maybeEyes10 |> Option.get
 
-            let (GrayScaled gray) = args.gray
+            let (EqualizedHistogram gray) = args.equalized
             let faceDebug = gray.Clone()
 
-            let l1 = refineEyeArea args.gray 24 leftEye
-            // let r2 = refineEyeArea args.gray 10 rightEye
-
             // CvInvoke.Rectangle(faceDebug, l1, MCvScalar(255.0, 0.0, 0.0))
-            // CvInvoke.Rectangle(faceDebug, r2, MCvScalar(255.0, 0.0, 0.0))
+            // CvInvoke.Rectangle(faceDebug, r1, MCvScalar(255.0, 0.0, 0.0))
 
-            let leyeDebug = new Mat(faceDebug, leftEye)
-            let reyeDebug = new Mat(faceDebug, rightEye)
+            let reyeDebug24 = new Mat(faceDebug, rightEye24)
+            let reyeDebug10 = new Mat(faceDebug, rightEye10)
 
-            let (mean, _) = meanStdDev leyeDebug
+            let (mean, stdDev) = meanStdDev reyeDebug10
 
-            printfn "Left Mean:   %A" <| mean.ToArray()
-            //printfn "Left StdDev: %A" <| stdDev.ToArray()
+            if stdDev.V0 < 6.0 then 
 
-            let (mean, _) = meanStdDev reyeDebug
-            
-            printfn "Right Mean:   %A" <| mean.ToArray()
-            //printfn "Right StdDev: %A" <| stdDev.ToArray()
+                printfn "Right Mean:   %A" <| mean.ToArray()
+                printfn "Right StdDev: %A" <| stdDev.ToArray()
 
-            let leyeDebug = rangeTreshold 60.0 70.0 <| new Mat(faceDebug.Clone(), l1)
+                // let (mean, _) = meanStdDev reyeDebug
+                
+                // printfn "Right Mean:   %A" <| mean.ToArray()
+                // printfn "Right StdDev: %A" <| stdDev.ToArray()
 
-            debug leyeDebug reyeDebug |> ignore
+                let binary = rangeTreshold (mean.V0 * 0.7) (mean.V0) <| new Mat(faceDebug.Clone(), rightEye24)
+                // let leyeDebug2 = rangeTreshold (mean.V0 * 0.71) (mean.V0 * 1.14) <| new Mat(faceDebug.Clone(), l1)
 
-            CvInvoke.Rectangle(faceDebug, face, MCvScalar(0.0, 0.0, 255.0))
-            CvInvoke.Rectangle(faceDebug, leftEye, MCvScalar(255.0, 0.0, 0.0))
-            CvInvoke.Rectangle(faceDebug, rightEye, MCvScalar(255.0, 0.0, 0.0))
-            CvInvoke.Imshow("Debug View", faceDebug)
+                // SMALLEST CIRCLE THAT CONTAINS ALL BLACK POINTS!!!
+                debug reyeDebug24 reyeDebug10 binary |> ignore
 
-            CvInvoke.WaitKey(1) |> ignore
+                // CvInvoke.Rectangle(faceDebug, face, MCvScalar(0.0, 0.0, 255.0))
+                // CvInvoke.Rectangle(faceDebug, leftEye, MCvScalar(255.0, 0.0, 0.0))
+                // CvInvoke.Rectangle(faceDebug, rightEye, MCvScalar(255.0, 0.0, 0.0))
+                // CvInvoke.Imshow("Debug View", faceDebug)
+
+                CvInvoke.WaitKey(1) |> ignore
 
         return ()
     }
