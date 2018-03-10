@@ -3,6 +3,7 @@ module DojutsifyMe.Utils
 open System.Drawing
 open Emgu.CV
 open Emgu.CV.Structure
+open Emgu.CV.Util
 
 let mapTuple f (a,b) = (f a, f b)
 
@@ -31,16 +32,12 @@ let meanStdDev input =
     let mutable stdDev = ref <| new MCvScalar()
 
     CvInvoke.MeanStdDev(input, mean, stdDev, null)
-
     (mean.Value, stdDev.Value)
 
-let rangeTreshold minValue maxValue (input:Mat) = 
-    let output = input.Clone()
-    CvInvoke.InRange(input, new ScalarArray(new MCvScalar(minValue)), new ScalarArray(new MCvScalar(maxValue)), output)
-    CvInvoke.BitwiseNot(output, output)
-    output
+let approximateContours (curve:Point[]) =
+    let approximatedCurve = new VectorOfPoint();
+    let epsilon = 0.05 * CvInvoke.ArcLength(new VectorOfPoint(curve), true)
+    CvInvoke.ApproxPolyDP(new VectorOfPoint(curve), approximatedCurve, epsilon, true)
+    approximatedCurve.ToArray()
 
-let canny input = 
-    let output = new Mat()
-    CvInvoke.Canny(input, output,75.0, 200.0)
-    output
+let minEnclosingCircle (points:Point[]) = CvInvoke.MinEnclosingCircle(points |> Array.map (fun p -> PointF(float32 p.X, float32 p.Y)))

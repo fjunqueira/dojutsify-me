@@ -32,7 +32,7 @@ let lucasKanade (GrayScaled nextFrame) (GrayScaled previousFrame) (previousPoint
         previousFrame, 
         nextFrame, 
         previousPoints |> List.toArray,
-        Size(15,15), 
+        Size(15, 15), 
         2, 
         MCvTermCriteria(10, 0.03), 
         &currentPoints, 

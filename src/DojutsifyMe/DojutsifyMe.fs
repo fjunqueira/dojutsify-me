@@ -48,9 +48,9 @@ let debug (leyeDebug:Mat) (reyeDebug:Mat) (teste:Mat) =
     // CvInvoke.Threshold(reyeDebug, rclone, rmaxVal*pct, 255.0, ThresholdType.Binary) |> ignore
     // CvInvoke.Circle(lclone, lmaxLoc, 2, MCvScalar(255.0,0.0,0.0))
     // CvInvoke.Circle(rclone, rmaxLoc, 2, MCvScalar(255.0,0.0,0.0))
-    CvInvoke.Resize(lclone, lclone, Size(100, 100), 0.0, 0.0, Inter.Cubic);
-    CvInvoke.Resize(rclone, rclone, Size(100, 100), 0.0, 0.0, Inter.Cubic);
-    CvInvoke.Resize(teste, teste, Size(100, 100), 0.0, 0.0, Inter.Cubic);
+    CvInvoke.Resize(lclone, lclone, Size(300, 300), 0.0, 0.0, Inter.Cubic);
+    CvInvoke.Resize(rclone, rclone, Size(300, 300), 0.0, 0.0, Inter.Cubic);
+    CvInvoke.Resize(teste, teste, Size(300, 300), 0.0, 0.0, Inter.Cubic);
     CvInvoke.Imshow("24", lclone)
     CvInvoke.Imshow("10", rclone)
     CvInvoke.Imshow("24 gray", teste)
@@ -85,40 +85,51 @@ let frameProcessingPipeline =
             
             let (leftEye24, rightEye24) = maybeEyes24 |> Option.get
             let (leftEye10, rightEye10) = maybeEyes10 |> Option.get
-
-            let (EqualizedHistogram gray) = args.equalized
+            
+            let (GrayScaled gray) = args.gray
             let faceDebug = gray.Clone()
 
             // CvInvoke.Rectangle(faceDebug, l1, MCvScalar(255.0, 0.0, 0.0))
             // CvInvoke.Rectangle(faceDebug, r1, MCvScalar(255.0, 0.0, 0.0))
 
-            let reyeDebug24 = new Mat(faceDebug, rightEye24)
-            let reyeDebug10 = new Mat(faceDebug, rightEye10)
+            let reyeDebug24 = new Mat(faceDebug.Clone(), rightEye24)
+            let reyeDebug10 = new Mat(faceDebug.Clone(), rightEye10)
 
             let (mean, stdDev) = meanStdDev reyeDebug10
 
-            if stdDev.V0 < 6.0 then 
+            // if stdDev.V0 < 6.0 then 
 
-                printfn "Right Mean:   %A" <| mean.ToArray()
-                printfn "Right StdDev: %A" <| stdDev.ToArray()
+            // printfn "Right Mean:   %A" <| mean.ToArray()
+            // printfn "Right StdDev: %A" <| stdDev.ToArray()
 
-                // let (mean, _) = meanStdDev reyeDebug
-                
-                // printfn "Right Mean:   %A" <| mean.ToArray()
-                // printfn "Right StdDev: %A" <| stdDev.ToArray()
+            // let (mean, _) = meanStdDev reyeDebug
+            
+            // printfn "Right Mean:   %A" <| mean.ToArray()
+            // printfn "Right StdDev: %A" <| stdDev.ToArray()
 
-                let binary = rangeTreshold (mean.V0 * 0.7) (mean.V0) <| new Mat(faceDebug.Clone(), rightEye24)
-                // let leyeDebug2 = rangeTreshold (mean.V0 * 0.71) (mean.V0 * 1.14) <| new Mat(faceDebug.Clone(), l1)
+            let binaryRightEye = rangeTreshold (mean.V0 * 0.7) mean.V0 <| reyeDebug24
+            // let leyeDebug2 = rangeTreshold (mean.V0 * 0.71) (mean.V0 * 1.14) <| new Mat(faceDebug.Clone(), l1)
 
-                // SMALLEST CIRCLE THAT CONTAINS ALL BLACK POINTS!!!
-                debug reyeDebug24 reyeDebug10 binary |> ignore
+            //let circle = findContours binaryRightEye |> Array.map (approximateContours >> minEnclosingCircle) |> Array.tryHead 
 
-                // CvInvoke.Rectangle(faceDebug, face, MCvScalar(0.0, 0.0, 255.0))
-                // CvInvoke.Rectangle(faceDebug, leftEye, MCvScalar(255.0, 0.0, 0.0))
-                // CvInvoke.Rectangle(faceDebug, rightEye, MCvScalar(255.0, 0.0, 0.0))
-                // CvInvoke.Imshow("Debug View", faceDebug)
+            let circle = findContours binaryRightEye |> Array.filter(fun cont -> Array.length cont > 10) |> Array.map (minEnclosingCircle) |> Array.tryHead 
 
-                CvInvoke.WaitKey(1) |> ignore
+            //CvInvoke.DrawContours(reyeDebug24, new VectorOfVectorOfPoint(circle), -1, MCvScalar(255.0,0.0,0.0))
+            
+            match circle with
+            | Some c -> CvInvoke.Circle(args.frame, new Point(int c.Center.X + rightEye24.X, int c.Center.Y + rightEye24.Y), int c.Radius, MCvScalar(0.0,0.0,255.0))
+                        printfn "Circulinhu X: %f  y: %f" (float c.Center.X) (float c.Center.Y)
+            | None -> ()
+
+            // SMALLEST CIRCLE THAT CONTAINS ALL BLACK POINTS!!!
+            debug reyeDebug24 reyeDebug10 binaryRightEye |> ignore
+
+            // CvInvoke.Rectangle(faceDebug, face, MCvScalar(0.0, 0.0, 255.0))
+            // CvInvoke.Rectangle(faceDebug, leftEye, MCvScalar(255.0, 0.0, 0.0))
+            // CvInvoke.Rectangle(faceDebug, rightEye, MCvScalar(255.0, 0.0, 0.0))
+            // CvInvoke.Imshow("Debug View", faceDebug)
+
+            CvInvoke.WaitKey(1) |> ignore
 
         return ()
     }
@@ -159,7 +170,7 @@ let main _ =
             //let keypoints = new VectorOfKeyPoint(points |> List.map (fun p -> MKeyPoint(Point=p)) |> List.toArray)
             //Features2DToolbox.DrawKeypoints(frame, keypoints, output, Bgr(Color.Green),Features2DToolbox.KeypointDrawType.Default)
             
-            //CvInvoke.Imshow("Dojutsify Me", output)
+            CvInvoke.Imshow("Dojutsify Me", output)
             CvInvoke.WaitKey(1) |> ignore
         ) |> ignore
 
